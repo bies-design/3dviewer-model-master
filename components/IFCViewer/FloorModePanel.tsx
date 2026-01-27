@@ -135,6 +135,8 @@ const fetchAndIsolateFloor = useCallback(async (floor: string | null) => {
         if (!response.ok) throw new Error('Search request failed');
         const foundElements = await response.json();
 
+        console.log("依照樓層找到",foundElements);
+        
         if (foundElements.length > 0) {
             const finalResult: { [id: string]: Set<number> } = {};
             const foundItems: TResultItem[] = [];

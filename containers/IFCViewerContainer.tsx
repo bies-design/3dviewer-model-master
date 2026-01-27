@@ -222,6 +222,8 @@ export default function IFCViewerContainer() {
   const [showVisitors, setShowVisitors] = useState(true);
   const [intervalMs, setIntervalMs] = useState(5000);
 
+  const [cameras, setCameras] = useState<any[]>([]);
+
   const [showWarningModal, setShowWarningModal] = useState(false);
 
   const [selectedColor, setSelectedColor] = useState<string>("#ffa500");
@@ -2332,7 +2334,7 @@ const showCCTVDisplay = async(elementName:string) => {
 
   const left = (window.screen.availWidth - w) / 2;
   const top = (window.screen.availHeight - h) / 2;
-  
+
   const features = [
     `width=${w}`,
     `height=${h}`,
@@ -2414,10 +2416,38 @@ const handleIssueForms = async() => {
     setToast({ message: "無法讀取設備詳細資料", type: "error" });
   }
 }
+const outlineAllCamera = async() => {
+  if (!components || !fragmentsRef.current) return;
 
+  try {
+    const response = await fetch("/api/cameras");
+    if (response.ok) {
+        const data = await response.json();
+        setCameras(data);
+    }
+
+    console.log(cameras);
+    const validCameras = cameras.filter((cam: any) => cam.elementName && cam.elementName.trim() !== "");
+
+    if (validCameras.length === 0) {
+      setToast({ message: "目前沒有已關聯 BIM 元件的監視器", type: "warning" });
+      return;
+    }
+
+    const cameraNames = validCameras.map(cam => cam.elementName);
+
+    console.log("目前有的camera",cameraNames);
+
+  }catch (error) {
+      console.error("Failed to fetch cameras:", error);
+  }
+}
 const handleLocateElementByName = useCallback(async (elementName: string) => {
     if (!components || !fragmentsRef.current) return;
-    handleSwitchViewMode("floor");
+
+    handleSwitchViewMode('floor');
+
+    console.log("選中樓層",selectedFloor);
 
     try {
       const response = await fetch('/api/elements', {
@@ -2801,7 +2831,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                             itemStyle={{ color: '#fff' }}
                         />
                         <Bar dataKey="val" fill="url(#colorGradient)" radius={[2, 2, 0, 0]}>
-                            {/* 定義漸層 */}
+                      
                         </Bar>
                         <defs>
                             <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
@@ -2864,12 +2894,12 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                               >
                               
                               <defs>
-                                {/* 出水溫度漸層 - 綠色 */}
+                          
                                 <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
                                   <stop offset="5%" stopColor="#4ade80" stopOpacity={0.3} />
                                   <stop offset="95%" stopColor="#4ade80" stopOpacity={0} />
                                 </linearGradient>
-                                {/* 入水溫度漸層 - 黃色 */}
+              
                                 <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
                                   <stop offset="5%" stopColor="#eab308" stopOpacity={0.3} />
                                   <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
@@ -2892,7 +2922,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                                 contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: 'none', borderRadius: '4px' }} 
                                 itemStyle={{ fontSize: '12px' }} 
                               />
-                              {/* 第一條線：出水溫度 */}
+
                               <Area
                                 type="monotone"
                                 dataKey="out"
@@ -2901,7 +2931,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                                 fillOpacity={1}
                                 fill="url(#colorOut)"
                               />
-                              {/* 第二條線：入水溫度 */}
+      
                               <Area
                                 type="monotone"
                                 dataKey="in"
@@ -3133,7 +3163,8 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                         // }else{
                         //   handleSwitchDeviceViewMode('CCTV');
                         // }
-                        setIsMonitorOpen(true);
+                        // setIsMonitorOpen(true);
+                        outlineAllCamera();
                       }}
                       className={`px-9  py-1 transition-all duration-200 border-r-1 border-[#2EC2EA] ${
                         deviceViewMode === 'CCTV'
