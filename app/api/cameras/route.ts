@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const client = await clientPromise;
     const db = client.db("model-viewer");
 
-    const query = elementName ? {elementName: elementName} : {}
+    const query = elementName ? {elementName} : {}
 
     const cameras = await db.collection("cameras").find(query).toArray();
 

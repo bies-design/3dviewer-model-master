@@ -70,7 +70,7 @@
     "sonner": "^2.0.7",
     "three": "^0.179.1",
     "three-mesh-bvh": "^0.9.1",
-    "web-ifc": "^0.0.72"
+    "web-ifc": "^0.0.74"
   },
   "overrides": {
     "nodemailer": "^7.0.7"

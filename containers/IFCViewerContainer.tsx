@@ -2327,15 +2327,11 @@ useEffect(() => {
 
   // open the camera's hls or webrtc page aside
 const showCCTVDisplay = async(elementName:string) => {
-
   const w = window.screen.availWidth/2;
   const h = window.screen.availHeight/2;
 
-  // 計算置中座標：(螢幕總寬 - 視窗寬) / 2
   const left = (window.screen.availWidth - w) / 2;
 
-  // 設定 Window Features
-  // popup=yes 是現代瀏覽器的標準，能讓它看起來更像獨立視窗而非分頁
   const features = [
     `width=${w}`,
     `height=${h}`,
@@ -2348,39 +2344,14 @@ const showCCTVDisplay = async(elementName:string) => {
     "scrollbars=yes"
   ].join(",");
 
-  if (!elementName) {
-    setToast({ message: "請先選擇一個設備", type: "error" });
+  if (elementName) {
+    setToast({ message: "請先選擇一個攝影機", type: "error" });
     return;
   }
-  // 去掉前面的model/
-  const cleanFragId = selectedFragId.slice(7);
-    console.log(cleanFragId);
-  try{
-    // 1. 因為 selectedDevice 是數字 (expressID)，我們先去後端查它的 MongoDB _id
-    // 這裡調用你分析中提到的 API 雙重支持功能
-    const response = await fetch(`/api/elements/${selectedDevice}`);
-    const elementData = await response.json();
-    
-    if (elementData && elementData._id) {
-      // 2. 拿到 24 碼的 MongoDB ObjectId
-      const mongoId = elementData._id;
-      
-      const safeFragId = encodeURIComponent(cleanFragId);
 
-      const targetUrl = `/element/${safeFragId}/${mongoId}`;
-      console.log(`準備跳轉：模型=${safeFragId}, MongoID=${mongoId}`);
+  //開啟新分頁
+  window.open(`/CCTV/${elementName}`, `CCTV_${elementName}`, features);
 
-      //開啟新分頁
-      window.open(targetUrl, "IssueForm", features);
-      console.log(`已在新分頁開啟設備表單：${targetUrl}`);
-
-    } else {
-      throw new Error("找不到對應的資料庫記錄");
-    }
-  }catch(error){
-    console.error("獲取 ObjectId 失敗:", error);
-    setToast({ message: "無法讀取設備詳細資料", type: "error" });
-  }
 }
 // fetch the object id for the routing
 const handleIssueForms = async() => {
