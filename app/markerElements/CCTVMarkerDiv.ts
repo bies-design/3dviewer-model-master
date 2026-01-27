@@ -45,7 +45,7 @@ export const createMarkerElement = (text: string, options?: MarkerOptions): HTML
     if (onClick) {
         element.onclick = (e) => {
         e.stopPropagation(); // 防止事件冒泡到 3D 場景
-        onClick();
+        onClick(text);
         };
     }
 

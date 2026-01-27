@@ -213,13 +213,13 @@ const WarningHistoryModal: React.FC<Props> = ({ componentsRef, onClose }) => {
 
 
 
-                                    const safeElementId = encodeURIComponent(log.elementId);
-                                    const targetUrl = `/element/${fragId}/${safeElementId}`;
-                                    console.log(`準備跳轉：模型=${fragId}, MongoID=${safeElementId}`);
+                                    // const safeElementId = encodeURIComponent(log.elementId);
+                                    // const targetUrl = `/element/${fragId}/${safeElementId}`;
+                                    // console.log(`準備跳轉：模型=${fragId}, MongoID=${safeElementId}`);
 
-                                    //開啟新分頁
-                                    window.open(targetUrl, "IssueForm", features);
-                                    console.log(`已在新分頁開啟設備表單：${targetUrl}`);
+                                    // //開啟新分頁
+                                    // window.open(targetUrl, "IssueForm", features);
+                                    // console.log(`已在新分頁開啟設備表單：${targetUrl}`);
                                 }else {
                                     throw new Error("找不到對應的資料庫記錄");
                                 }

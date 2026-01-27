@@ -2331,7 +2331,8 @@ const showCCTVDisplay = async(elementName:string) => {
   const h = window.screen.availHeight/2;
 
   const left = (window.screen.availWidth - w) / 2;
-
+  const top = (window.screen.availHeight - h) / 2;
+  
   const features = [
     `width=${w}`,
     `height=${h}`,
@@ -2344,7 +2345,7 @@ const showCCTVDisplay = async(elementName:string) => {
     "scrollbars=yes"
   ].join(",");
 
-  if (elementName) {
+  if (!elementName) {
     setToast({ message: "請先選擇一個攝影機", type: "error" });
     return;
   }
