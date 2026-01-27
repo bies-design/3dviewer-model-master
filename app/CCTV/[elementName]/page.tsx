@@ -1,3 +1,5 @@
+'use client';
+
 import CameraPlayer from '@/components/camera/CameraPlayer';
 import { useParams } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
