@@ -20,22 +20,24 @@ import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
 import MobileSidePanelToggle from "@/components/IFCViewer/MobileSidePanelToggle";
 import IFCInfoPanel from "@/components/IFCViewer/InfoPanel";
-import HomePanel from "@/components/IFCViewer/HomePanel";
+import HomePanel, { HomePanelRef } from "@/components/IFCViewer/HomePanel";
 import FloorPlan from "@/components/IFCViewer/FloorPlan";
 import AssetsPanel from "@/components/IFCViewer/AssetsPanel";
 import ShadowScenePanel from "@/components/IFCViewer/ShadowScenePanel";
-import SearchPanel from "@/components/IFCViewer/SearchPanel";
+import MobileSearchPanel from "@/components/IFCViewer/MobileSearchPanel";
 
 type ItemProps = Record<string, any>;
 type PsetDict = Record<string, Record<string, any>>;
 
 const MobileViewerContainer = () => {
-  const { uploadedModels, setUploadedModels, viewerApi, darkMode, toggleTheme, user, setUser, isLoggedIn, setIsLoggedIn } = useAppContext();
+  const { uploadedModels, setUploadedModels, viewerApi, darkMode, toggleTheme, user, setUser, isLoggedIn, setIsLoggedIn, setToast } = useAppContext();
   const viewerRef = useRef<HTMLDivElement>(null);
   const componentsRef = useRef<OBC.Components | null>(null);
   const fragmentsRef = useRef<OBC.FragmentsManager | null>(null);
   const worldRef = useRef<OBC.World | null>(null);
   const cameraRef = useRef<OBC.OrthoPerspectiveCamera | null>(null);
+  const searchElementRef = useRef<HomePanelRef>(null);
+
   const [isUserPanelOpen, setIsUserPanelOpen] = useState(false);
   const [components, setComponents] = useState<OBC.Components | null>(null);
   const [progress, setProgress] = useState(0);
@@ -54,8 +56,11 @@ const MobileViewerContainer = () => {
   const areaMeasurerRef = useRef<OBCF.AreaMeasurement | null>(null);
   const highlighterRef = useRef<OBCF.Highlighter | null>(null);
   const restListener = useRef<(() => Promise<void>) | null>(null);
+  const isAddingToGroupRef = useRef(false);
+  const activeAddGroupIdRef = useRef<string | null>(null);
+  const activeToolRef = useRef<"clipper" | "length" | "area" | "multi-select" | "search" | null>(null);
 
-  const [activeTool, setActiveTool] = useState<"clipper" | "length" | "area" | "multi-select" | null>(null);
+  const [activeTool, setActiveTool] = useState<"clipper" | "length" | "area" | "multi-select" | "search" | null>(null);
   const [isGhost, setIsGhost] = useState(false);
   const [isShadowed, setIsShadowed] = useState(false);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
@@ -64,13 +69,329 @@ const MobileViewerContainer = () => {
   const [selectedLocalId, setSelectedLocalId] = useState<number | null>(null);
   const [lengthMode, setLengthMode] = useState<"free" | "edge">("free");
   const [areaMode, setAreaMode] = useState<"free" | "square">("free");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isAddingToGroup, setIsAddingToGroup] = useState(false);
+  const [activeAddGroupId, setActiveAddGroupId] = useState<string | null>(null);
+  const [currentModelGroupId, setCurrentModelGroupId] = useState<string | null>(null);
+  const [mainDisplayGroupId, setMainDisplayGroupId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('mainDisplayGroupId') || null;
+    }
+    return null;
+  });
+  const [r2HistoryRefreshCounter, setR2HistoryRefreshCounter] = useState(0);
+  const [hasAutoLoadedModels, setHasAutoLoadedModels] = useState(true );
+
+  useEffect(() => {
+    isAddingToGroupRef.current = isAddingToGroup;
+    activeAddGroupIdRef.current = activeAddGroupId;
+  }, [isAddingToGroup, activeAddGroupId]);
+
+  useEffect(() => {
+    activeToolRef.current = activeTool;
+  }, [activeTool]);
 
   // States for Side Panel
-  type PanelType = 'home' | 'floor' | 'assets';
+  type PanelType = 'home' | 'search' | 'floor' | 'assets';
   const [selectedSidePanel, setSelectedSidePanel] = useState<PanelType>('home');
   const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
   const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
   const startPosition = useRef<{ x: number; y: number } | null>(null);
+
+  const fetchR2Models = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/models/r2-upload/list');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch R2 models: ${response.statusText}`);
+      }
+      const r2Models = await response.json();
+      setUploadedModels((prevModels) => {
+        const r2ModelsFromApi = r2Models;
+        const updatedModels = prevModels.map((prevModel) => {
+          const matchingR2Model = r2ModelsFromApi.find(
+            (r2Model: any) => r2Model._id === prevModel._id
+          );
+          return matchingR2Model ? { ...prevModel, groupIds: matchingR2Model.groupIds } : prevModel;
+        });
+
+        r2ModelsFromApi.forEach((newR2Model: any) => {
+          if (!updatedModels.some((existingModel) => existingModel._id === newR2Model._id)) {
+            updatedModels.push(newR2Model);
+          }
+        });
+        return updatedModels;
+      });
+    } catch (error) {
+      console.error('Error fetching R2 models:', error);
+    }
+  }, [setUploadedModels]);
+
+  const handleAssignModelToGroup = React.useCallback(async (modelId: string, groupIds: string[]) => {
+    try {
+      const response = await fetch('/api/models/assign-group', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modelId, groupIds }),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to assign model to group: ${response.statusText}`);
+      }
+      await fetchR2Models();
+      setToast({ message: `Model ${modelId} assigned to groups ${groupIds.join(', ') || 'ungrouped'} successfully!`, type: "success" });
+      setR2HistoryRefreshCounter(prev => prev + 1);
+    } catch (error) {
+      console.error('Error assigning model to group:', error);
+      setToast({ message: `Failed to assign model ${modelId} to group. Check console for details.`, type: "error" });
+    }
+  }, [fetchR2Models, setToast]);
+
+  const sendRemoteLog = React.useCallback(async (level: string, message: string, data?: any) => {
+    try {
+      // 處理 Error 物件以確保能被 JSON 序列化
+      let serializedData = data;
+      if (data instanceof Error) {
+        serializedData = {
+          message: data.message,
+          stack: data.stack,
+          name: data.name
+        };
+      } else if (data && typeof data === 'object') {
+        // 遞迴檢查是否有 Error 物件
+        serializedData = JSON.parse(JSON.stringify(data, Object.getOwnPropertyNames(data)));
+      }
+
+      await fetch('/api/debug/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level, message, data: serializedData }),
+      });
+    } catch (e) {
+      console.warn("Failed to send remote log", e);
+    }
+  }, []);
+
+  const loadR2ModelIntoViewer = React.useCallback(async (r2FileName: string, onProgress: (progress: number) => void) => {
+    if (!fragmentsRef.current || !worldRef.current) {
+      const msg = "Viewer components not initialized: fragmentsRef or worldRef is null";
+      console.error(msg);
+      sendRemoteLog("ERROR", msg);
+      return;
+    }
+
+    try {
+      const startMsg = `[DEBUG] Starting loadR2ModelIntoViewer for: ${r2FileName}`;
+      console.log(startMsg);
+      sendRemoteLog("INFO", startMsg);
+
+      const downloadResponse = await fetch('/api/models/r2-upload/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: r2FileName }),
+      });
+
+      if (!downloadResponse.ok) {
+        const errorText = await downloadResponse.text();
+        const errMsg = `[DEBUG] API Error (${downloadResponse.status}): ${errorText}`;
+        console.error(errMsg);
+        sendRemoteLog("ERROR", errMsg);
+        throw new Error(`Failed to get signed URL for ${r2FileName}: ${downloadResponse.statusText}`);
+      }
+
+      const { signedUrl } = await downloadResponse.json();
+      const urlObj = new URL(signedUrl);
+      sendRemoteLog("INFO", `[DEBUG] Successfully obtained signed URL. Host: ${urlObj.host}, Protocol: ${urlObj.protocol}`);
+      
+      console.log(`[DEBUG] Fetching model data from R2...`);
+      const modelResponse = await fetch(signedUrl).catch(err => {
+        const errMsg = `[DEBUG] Network error during R2 fetch: ${err.message}`;
+        console.error(errMsg, err);
+        sendRemoteLog("ERROR", errMsg, { stack: err.stack });
+        throw err;
+      });
+
+      if (!modelResponse.ok) {
+        const errMsg = `[DEBUG] R2 Download Error (${modelResponse.status}): ${modelResponse.statusText}`;
+        console.error(errMsg);
+        sendRemoteLog("ERROR", errMsg);
+        throw new Error(`Failed to download model ${r2FileName} from R2: ${modelResponse.statusText}`);
+      }
+
+      sendRemoteLog("INFO", `[DEBUG] R2 Response OK. Status: ${modelResponse.status}`);
+      const contentLength = modelResponse.headers.get('content-length');
+      const total = contentLength ? parseInt(contentLength, 10) : 0;
+      let loaded = 0;
+
+      const reader = modelResponse.body?.getReader();
+      if (!reader) throw new Error("Response body is null");
+
+      const chunks: Uint8Array[] = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        loaded += value.length;
+        if (total > 0) {
+          onProgress((loaded / total) * 100);
+        }
+      }
+
+      const arrayBuffer = await new Blob(chunks as BlobPart[]).arrayBuffer();
+      const modelId = `${r2FileName}`;
+
+      if (fragmentsRef.current.list.has(modelId)) {
+        sendRemoteLog("INFO", `[DEBUG] Disposing existing model with ID: ${modelId}`);
+        fragmentsRef.current.core.disposeModel(modelId);
+      }
+
+      const loadMsg = `[DEBUG] Loading arrayBuffer into fragments engine... Size: ${arrayBuffer.byteLength} bytes`;
+      console.log(loadMsg);
+      sendRemoteLog("INFO", loadMsg);
+
+      const fragModel = await fragmentsRef.current.core.load(arrayBuffer, { modelId }).catch(err => {
+        const errMsg = `[DEBUG] Fragments engine load error: ${err.message}`;
+        console.error(errMsg, err);
+        sendRemoteLog("ERROR", errMsg, { stack: err.stack });
+        throw err;
+      });
+      
+      fragmentsRef.current.list.set(modelId, fragModel);
+
+      sendRemoteLog("INFO", `[DEBUG] Model loaded. Setting up camera and scene...`);
+      const cam = worldRef.current.camera.three as THREE.PerspectiveCamera | THREE.OrthographicCamera;
+      fragModel.useCamera(cam);
+      worldRef.current.scene.three.add(fragModel.object);
+      fragmentsRef.current.core.update(true);
+
+      const successMsg = `[DEBUG] Model ${r2FileName} successfully integrated into viewer.`;
+      console.log(successMsg);
+      sendRemoteLog("INFO", successMsg);
+      setUploadedModels((prev) => {
+        const existingModelIndex = prev.findIndex(m => m.r2FileName === r2FileName);
+        if (existingModelIndex > -1) {
+          const updated = [...prev];
+          updated[existingModelIndex] = { ...updated[existingModelIndex], id: modelId, data: arrayBuffer };
+          return updated;
+        }
+        return [...prev, { id: modelId, name: r2FileName, type: "frag", data: arrayBuffer, r2FileName }];
+      });
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const finalMsg = `[DEBUG] Final Catch - Failed to load model ${r2FileName}: ${errorMessage}`;
+      console.error(finalMsg, error);
+      sendRemoteLog("ERROR", finalMsg, { stack: (error as any)?.stack });
+      setToast({ message: `Failed to load model ${r2FileName}: ${errorMessage}`, type: "error" });
+    }
+  }, [fragmentsRef, worldRef, setUploadedModels, setToast]);
+
+  const extractAndSaveElements = async (model: FRAGS.FragmentsModel) => {
+    if (!componentsRef.current) return;
+    console.log("Starting element extraction...");
+  
+    try {
+      const itemIDs = await model.getItemsIdsWithGeometry();
+      if (itemIDs.length === 0) {
+        console.log("No elements found in the model to extract.");
+        return;
+      }
+      console.log(`Found ${itemIDs.length} elements. Processing in batches...`);
+  
+      const batchSize = 100;
+      let processedCount = 0;
+      let totalInserted = 0;
+  
+      for (let i = 0; i < itemIDs.length; i += batchSize) {
+        const batch = Array.from(itemIDs.slice(i, i + batchSize));
+        
+        const relationNames = await model.getRelationNames();
+        const relationsConfig: { [key: string]: { attributes: boolean, relations: boolean } } = {};
+        for (const name of relationNames) {
+          relationsConfig[name] = { attributes: true, relations: true };
+        }
+
+        const batchProperties = await model.getItemsData(batch, {
+          attributesDefault: true,
+          relations: relationsConfig,
+        });
+  
+        const relationNamesSet = new Set(relationNames);
+        const elementsToSave = batchProperties.map((properties: any) => {
+          const attributes: { [key: string]: any } = {};
+          const relations: { [key: string]: any } = {};
+          let psets: PsetDict = {};
+
+          if (properties) {
+            for (const key in properties) {
+              if (relationNamesSet.has(key)) {
+                relations[key] = properties[key];
+                if (key === "IsDefinedBy" && Array.isArray(properties[key])) {
+                  psets = formatItemPsets(properties[key]);
+                }
+              } else {
+                attributes[key] = properties[key];
+              }
+            }
+          }
+
+          return {
+            modelId: model.modelId,
+            expressID: attributes._localId?.value,
+            attributes,
+            psets,
+            relations,
+          };
+        });
+  
+        if (elementsToSave.length > 0) {
+          const response = await fetch('/api/elements', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(elementsToSave),
+          });
+  
+          if (!response.ok) {
+            const errorBody = await response.text();
+            console.error(`API request failed for batch starting at index ${i}: ${errorBody}`);
+            continue;
+          }
+  
+          const apiResult = await response.json();
+          totalInserted += apiResult.insertedCount || 0;
+        }
+  
+        processedCount += batch.length;
+        console.log(`Processed ${processedCount}/${itemIDs.length} elements. Total inserted so far: ${totalInserted}`);
+      }
+  
+      console.log("Finished processing all batches.");
+      setToast({ message: `Successfully processed all elements. A total of ${totalInserted} new elements were saved to the database!`, type: "success" });
+  
+    } catch (error) {
+      console.error("An error occurred during element extraction:", error);
+      setToast({ message: "Failed to extract elements. Check the console for details.", type: "error" });
+    }
+  };
+
+  const loadCategoriesFromAllModels = async () => {
+    if (!fragmentsRef.current) return;
+
+    const allCats: Set<string> = new Set();
+
+    for (const model of fragmentsRef.current.list.values()) {
+      const cats = await model.getItemsOfCategories([/.*/]);
+      Object.keys(cats).forEach((c) => allCats.add(c));
+    }
+
+    setCategories(Array.from(allCats).sort());
+  };
+
+  const handleToggleAddMode = (active: boolean, groupId: string | null) => {
+    setIsAddingToGroup(active);
+    setActiveAddGroupId(groupId);
+  };
 
   const handleLogout = async () => {
     try {
@@ -88,12 +409,42 @@ const MobileViewerContainer = () => {
   };
 
   useEffect(() => {
-    if (!isLoggedIn) {
+    // 嘗試從 localStorage 恢復登入狀態與使用者資訊
+    const savedLogin = localStorage.getItem("isLoggedIn") === "true";
+    const savedUser = localStorage.getItem("user_data");
+    
+    if (!isLoggedIn && savedLogin) {
+      setIsLoggedIn(true);
+      if (savedUser && !user) {
+        setUser(JSON.parse(savedUser));
+      }
+    }
+
+    if (!isLoggedIn && !savedLogin) {
       setShowLoginModal(true);
     } else {
       setShowLoginModal(false);
+      if (isLoggedIn) {
+        localStorage.setItem("isLoggedIn", "true");
+        if (user) localStorage.setItem("user_data", JSON.stringify(user));
+      }
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, setIsLoggedIn, user, setUser]);
+
+  useEffect(() => {
+    // Trigger selectAll and loadSelectedModels when HomePanel is opened, but only once
+    if (isLoggedIn && isSidePanelOpen && selectedSidePanel === "home" && searchElementRef.current && !hasAutoLoadedModels) {
+      // Ensure the HomePanel is fully rendered and its ref is available
+      const timer = setTimeout(async () => {
+        if (searchElementRef.current) {
+          const selectedModels = await searchElementRef.current.handleSelectAllModels(); // Wait for selectAll to complete and get selected models
+          await searchElementRef.current.handleLoadSelectedR2Models(selectedModels); // Pass selected models
+          setHasAutoLoadedModels(true); // Mark as loaded
+        }
+      }, 500); // A small delay to ensure rendering and model availability
+      return () => clearTimeout(timer);
+    }
+  }, [isLoggedIn, isSidePanelOpen, selectedSidePanel, searchElementRef.current, hasAutoLoadedModels]);
 
   useEffect(() => {
     // Prevent scrolling on mobile
@@ -110,6 +461,72 @@ const MobileViewerContainer = () => {
       document.body.style.height = '';
     };
   }, []);
+
+  useEffect(() => {
+    const handleGlobalError = (event: ErrorEvent) => {
+      const msg = `[GLOBAL ERROR] ${event.message}`;
+      console.error(msg, event.error);
+      sendRemoteLog("ERROR", msg, {
+        stack: event.error?.stack,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno
+      });
+      setToast({ message: `Global Error: ${event.message}`, type: "error" });
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const msg = `[UNHANDLED REJECTION] ${event.reason}`;
+      console.error(msg, event.reason);
+      sendRemoteLog("ERROR", msg, {
+        reason: String(event.reason),
+        stack: event.reason?.stack
+      });
+      setToast({ message: `Unhandled Rejection: ${event.reason}`, type: "error" });
+    };
+
+    window.addEventListener("error", handleGlobalError);
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+
+    // 監聽 WebGL 崩潰 (Context Lost)
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      const msg = "[WEBGL ERROR] WebGL Context Lost! The device might be out of memory.";
+      console.error(msg);
+      sendRemoteLog("ERROR", msg);
+      setToast({ message: "3D 引擎崩潰，可能是手機記憶體不足，正在嘗試恢復...", type: "error" });
+    };
+
+    const canvas = viewerRef.current?.querySelector('canvas');
+    canvas?.addEventListener("webglcontextlost", handleContextLost);
+
+    return () => {
+      window.removeEventListener("error", handleGlobalError);
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+      canvas?.removeEventListener("webglcontextlost", handleContextLost);
+    };
+  }, [setToast, sendRemoteLog]);
+
+  useEffect(() => {
+    // 檢查是否有上次崩潰前的麵包屑
+    const lastBreadcrumb = localStorage.getItem("crash_breadcrumb");
+    if (lastBreadcrumb) {
+      sendRemoteLog("WARN", "App recovered from a potential crash/reload", { lastAction: lastBreadcrumb });
+      localStorage.removeItem("crash_breadcrumb");
+    }
+
+    // 測試遠端日誌連線
+    sendRemoteLog("INFO", "Mobile Viewer Client Connected", {
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      screen: `${window.screen.width}x${window.screen.height}`
+    });
+  }, [sendRemoteLog]);
+
+  // 麵包屑記錄器
+  const setBreadcrumb = (action: string) => {
+    localStorage.setItem("crash_breadcrumb", `${new Date().toISOString()}: ${action}`);
+  };
 
   useEffect(() => {
     if (!viewerRef.current) return;
@@ -141,7 +558,8 @@ const MobileViewerContainer = () => {
         },
       );
 
-      const renderer = new OBCF.PostproductionRenderer(components, viewerRef.current!);
+      // 在手機版改用 SimpleRenderer 並強制解析度為 1x 以節省顯存
+      const renderer = new OBC.SimpleRenderer(components, viewerRef.current!);
       world.renderer = renderer;
 
       const camera = new OBC.OrthoPerspectiveCamera(components);
@@ -159,6 +577,7 @@ const MobileViewerContainer = () => {
 
       const viewpoints = components.get(OBC.Viewpoints);
       viewpoints.world = world;
+
 
       // Initialize tools
       const highlighter = components.get(OBCF.Highlighter);
@@ -178,49 +597,72 @@ const MobileViewerContainer = () => {
           return;
         }
 
-        // setIsInfoOpen(true);
-        setInfoLoading(true);
-
-        // For simplicity on mobile, we'll only show info for the first selected item
-        const fragmentId = Object.keys(selection)[0];
-        const expressId = Array.from(selection[fragmentId])[0];
-        
-        const model = fragmentsRef.current?.list.get(fragmentId);
-        if (!model) {
-            setInfoLoading(false);
-            return;
-        };
-
-        const [attrs] = await model.getItemsData([expressId], { attributesDefault: true });
-        const psetsRaw = await getItemPsets(model, expressId);
-        const psets = formatItemPsets(psetsRaw);
-
-        let name = `Element ${expressId}`;
-        const nameAttribute = attrs?.Name as OBC.IDSAttribute;
-        if (nameAttribute && typeof nameAttribute.value === 'string') {
-          name = nameAttribute.value;
-        }
-
-        let qrCodeUrl = '';
-        try {
-          const response = await fetch(`/api/elements/${expressId}`);
-          if (response.ok) {
-            const elementData = await response.json();
-            if (elementData && elementData._id) {
-              qrCodeUrl = `${window.location.origin}/element/${fragmentId}/${elementData._id}`;
+        if (isAddingToGroupRef.current && activeAddGroupIdRef.current !== null) {
+          for (const fragmentId in selection) {
+            const model = fragmentsRef.current?.list.get(fragmentId);
+            if (!model) continue;
+            for (const expressId of selection[fragmentId]) {
+              const [attrs] = await model.getItemsData([expressId], { attributesDefault: true });
+              let name = `Element ${expressId}`;
+              const nameAttribute = attrs?.Name as OBC.IDSAttribute;
+              if (nameAttribute && typeof nameAttribute.value === 'string') {
+                name = nameAttribute.value;
+              }
+              const newItem = {
+                id: `${fragmentId}-${expressId}`,
+                name: name,
+                expressID: expressId,
+                fragmentId: fragmentId,
+              };
+              searchElementRef.current?.addItemToGroup(String(activeAddGroupIdRef.current), newItem);
             }
           }
-        } catch (error) {
-          console.error('Error fetching element data for QR code:', error);
-        }
+          await highlighter.clear("select");
+        } else {
+          // setIsInfoOpen(true);
+          setInfoLoading(true);
 
-        setSelectedModelId(fragmentId);
-        setSelectedLocalId(expressId);
-        setSelectedAttrs(attrs ?? {});
-        setSelectedPsets(psets);
-        setRawPsets(psetsRaw);
-        setQrCodeData([{ url: qrCodeUrl, name, modelId: fragmentId, expressId }]);
-        setInfoLoading(false);
+          // For simplicity on mobile, we'll only show info for the first selected item
+          const fragmentId = Object.keys(selection)[0];
+          const expressId = Array.from(selection[fragmentId])[0];
+          
+          const model = fragmentsRef.current?.list.get(fragmentId);
+          if (!model) {
+              setInfoLoading(false);
+              return;
+          };
+
+          const [attrs] = await model.getItemsData([expressId], { attributesDefault: true });
+          const psetsRaw = await getItemPsets(model, expressId);
+          const psets = formatItemPsets(psetsRaw);
+
+          let name = `Element ${expressId}`;
+          const nameAttribute = attrs?.Name as OBC.IDSAttribute;
+          if (nameAttribute && typeof nameAttribute.value === 'string') {
+            name = nameAttribute.value;
+          }
+
+          let qrCodeUrl = '';
+          try {
+            const response = await fetch(`/api/elements/${expressId}`);
+            if (response.ok) {
+              const elementData = await response.json();
+              if (elementData && elementData._id) {
+                qrCodeUrl = `${window.location.origin}/element/${fragmentId}/${elementData._id}`;
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching element data for QR code:', error);
+          }
+
+          setSelectedModelId(fragmentId);
+          setSelectedLocalId(expressId);
+          setSelectedAttrs(attrs ?? {});
+          setSelectedPsets(psets);
+          setRawPsets(psetsRaw);
+          setQrCodeData([{ url: qrCodeUrl, name, modelId: fragmentId, expressId }]);
+          setInfoLoading(false);
+        }
       });
 
       const clipper = components.get(OBC.Clipper);
@@ -231,17 +673,29 @@ const MobileViewerContainer = () => {
       components.get(OBC.ItemsFinder);
 
       const githubUrl = "https://thatopen.github.io/engine_fragment/resources/worker.mjs";
-      const fetchedUrl = await fetch(githubUrl);
+      console.log(`[DEBUG] Fetching fragments worker from: ${githubUrl}`);
+      const fetchedUrl = await fetch(githubUrl).catch(err => {
+        console.error("[DEBUG] Failed to fetch worker script:", err);
+        throw err;
+      });
       const workerBlob = await fetchedUrl.blob();
       const workerFile = new File([workerBlob], "worker.mjs", { type: "text/javascript" });
       const workerUrl = URL.createObjectURL(workerFile);
+      console.log(`[DEBUG] Worker URL created: ${workerUrl}`);
 
       const fragments = components.get(OBC.FragmentsManager);
       fragments.init(workerUrl);
       fragmentsRef.current = fragments;
 
+      // 限制更新頻率以節省記憶體與 CPU
+      let updateTimeout: NodeJS.Timeout | null = null;
       camera.controls.addEventListener("update", () => {
-        fragments.core.update(true);
+        if (updateTimeout) return;
+        setBreadcrumb("Camera Update / Zooming");
+        updateTimeout = setTimeout(() => {
+          fragments.core.update(true);
+          updateTimeout = null;
+        }, 100); // 每 100ms 最多更新一次
       });
 
       fragments.list.onItemSet.add(({ value: model }) => {
@@ -331,10 +785,14 @@ const MobileViewerContainer = () => {
       }
     };
 
-    if (componentsRef.current && isLoggedIn && fragmentsRef.current && fragmentsRef.current.list.size === 0) {
-      loadModelFromR2();
-    }
-  }, [components, isLoggedIn]);
+    const initModels = async () => {
+      if (componentsRef.current && isLoggedIn && fragmentsRef.current) {
+        // loadModelFromR2(); // Commented out to avoid loading default model if we want auto-load from HomePanel
+        await fetchR2Models();
+      }
+    };
+    initModels();
+  }, [components, isLoggedIn, fetchR2Models]);
 
   const getItemPsets = async (model: any, localId: number) => {
     const [data] = await model.getItemsData([localId], {
@@ -473,15 +931,21 @@ const MobileViewerContainer = () => {
     originalColors.current.clear();
   };
 
-  const handleGhost = () => {
+  const handleGhost = (enable?: boolean) => {
     if (!components) return;
 
-    if (isGhost) {
-      restoreModelMaterials();
-      setIsGhost(false);
+    const shouldEnable = enable !== undefined ? enable : !isGhost;
+
+    if (shouldEnable) {
+      if (!isGhost) {
+        setModelTransparent(components);
+        setIsGhost(true);
+      }
     } else {
-      setModelTransparent(components);
-      setIsGhost(true);
+      if (isGhost) {
+        restoreModelMaterials();
+        setIsGhost(false);
+      }
     }
   };
 
@@ -796,17 +1260,34 @@ const MobileViewerContainer = () => {
 
       {/* Side Panel Content */}
       <div className={`absolute top-0 right-0 w-80 z-10 transition-transform duration-300 ${isSidePanelOpen ? 'translate-x-0' : 'translate-x-full'} ${darkMode ? "bg-gray-800/80" : "bg-zinc-200/80"} backdrop-blur-sm p-4 overflow-y-auto`} style={{ paddingTop: '72px', height: 'calc(100% - 3rem)' }}>
-        {/* {selectedSidePanel === 'home' && components &&
-          <HomePanel
-            components={components}
-            darkMode={darkMode}
-            onClose={() => setIsSidePanelOpen(false)}
-            onToggleAddMode={() => {}}
-            onSearchResults={() => {}}
-          />} */}
         {selectedSidePanel === 'home' && components &&
-          <SearchPanel
+          <HomePanel
+              ref={searchElementRef}
+              components={components!}
+              darkMode={darkMode}
+              onClose={() => {
+                setIsSearchOpen(false);
+                setActiveTool(null);
+                setIsAddingToGroup(false);
+                setActiveAddGroupId(null);
+              }}
+              onToggleAddMode={handleToggleAddMode}
+              uploadedModels={uploadedModels}
+              setUploadedModels={setUploadedModels}
+              handleAssignModelToGroup={handleAssignModelToGroup}
+              onModelGroupFilterChange={setCurrentModelGroupId}
+              fetchR2Models={fetchR2Models}
+              loadR2ModelIntoViewer={loadR2ModelIntoViewer}
+              fragmentsRef={fragmentsRef}
+              worldRef={worldRef}
+              mainDisplayGroupId={mainDisplayGroupId}
+              setMainDisplayGroupId={setMainDisplayGroupId}
+            />}
+        {selectedSidePanel === 'search' && components &&
+          <MobileSearchPanel
             components={components}
+            isGhost={isGhost}
+            onGhostChange={handleGhost}
             darkMode={darkMode}
             loadedModelIds={Array.from(fragmentsRef.current?.list.keys() || [])}
           />}

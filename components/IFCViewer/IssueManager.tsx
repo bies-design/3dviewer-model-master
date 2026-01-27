@@ -1,14 +1,17 @@
 "use client";
 import qrcode from 'qrcode';
 
+import { createPortal } from 'react-dom';
+import { motion, PanInfo } from 'framer-motion'; 
 import React, { useState, useEffect, FormEvent } from 'react';
-import { Upload, Trash2, Edit, Maximize, Minimize, Printer, ClipboardClock, X } from "lucide-react";
+import { Upload, Trash2, Edit, Maximize, Minimize, Printer, ClipboardClock, X, Pencil, CirclePlus, Plus } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import IssueHistoryModal from './IssueHistoryModal';
 import ResponseHistoryModal from './ResponseHistoryModal';
 import ResponseEditModal from './ResponseEditModal';
 import { Issue, Response, IssueEdit } from '@/types/mongodb';
 import { useAppContext } from '@/contexts/AppContext';
+import { Input } from '@heroui/react';
 
 const CreateIssueModal = ({ onClose, onSubmit, darkMode, issue, isEdit }: any) => {
   const { t } = useTranslation();
@@ -27,10 +30,19 @@ const CreateIssueModal = ({ onClose, onSubmit, darkMode, issue, isEdit }: any) =
   const [isAddingNew, setIsAddingNew] = useState<string | null>(null);
   const [newOption, setNewOption] = useState('');
 
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setIsClient(true);
+    setMounted(true); // 組件掛載後設為 true
+    
+    // 鎖定背景滾動
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
   }, []);
 
+  
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     if (value === 'add-new') {
@@ -53,18 +65,35 @@ const CreateIssueModal = ({ onClose, onSubmit, darkMode, issue, isEdit }: any) =
     onSubmit(formData);
   };
 
-  return (
-    <div className="fixed inset-0 bg-opacity-50 backdrop-blur-sm flex justify-center items-center z-50">
-      <div className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-zinc-50 text-black'} p-4 rounded-xl shadow-lg w-1/3`}>
-        <h3 className="text-lg font-bold mb-4">{isEdit ? (isClient ? t('edit_issue') : t('edit_issue')) : (isClient ? t('new_issue') : t('new_issue'))}</h3>
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 bg-opacity-50 backdrop-blur-md flex justify-center items-center z-50 ">
+      <div className={`relative ${darkMode ? 'rounded-[20px] border border-white/10 backdrop-blur-[20px] bg-black/50 text-white' : 'bg-zinc-50 text-black'} rounded shadow-[inset_0px_1px_0px_0px_rgba(255,255,255,0.5),inset_0px_0px_20px_0px_rgba(255,255,255,0.05),inset_0px_-4px_6px_0px_rgba(100,200,255,0.3),0px_20px_40px_-10px_rgba(0,0,0,0.6)] p-4 w-5/6 sm:w-1/3`}>
+        <div className="absolute inset-0 rounded-[20px] opacity-15 pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat mix-blend-overlay"/>
+        <h3 className="text-center text-2xl drop-shadow-md font-bold mb-2">
+          {isEdit ? (isClient ? t('edit_issue') : t('edit_issue')) : (isClient ? t('new_issue') : t('new_issue'))}
+        </h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{isClient ? t('title') : t('title')}</label>
-            <input type="text" name="title" value={formData.title} onChange={handleChange} className={`mt-1 block w-full border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'} rounded-xl shadow-sm p-2`} required />
+            <Input label={isClient ? t('title') : t('title')} type="text" value={formData.title} onChange={handleChange} required
+            classNames={{
+              label: [
+                "text-black/80 dark:text-white/80",
+                "invalid:text-blue-100",
+              ],
+              input: ["text-black/90 dark:text-white/90"],
+              inputWrapper: [
+                "data-[focus-true]:bg-black/20 border border-white/10 shadow-[inset_0px_4px_4px_0px_rgba(0,0,0,0.8),inset_0px_-1px_4px_0px_rgba(255,255,255,0.5)]"
+              ],
+              description: "text-black/90 dark:text-white/90",
+              errorMessage: "text-red-700 dark:text-red-400",
+            }} 
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{isClient ? t('type') : t('type')}</label>
+              <label className={`block pl-1 text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{isClient ? t('type') : t('type')}</label>
               {isAddingNew === 'type' ? (
                 <div className="flex gap-2">
                   <input type="text" value={newOption} onChange={(e) => setNewOption(e.target.value)} className={`mt-1 block w-full border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'} rounded-xl shadow-sm p-2`} />
@@ -165,12 +194,15 @@ const CreateIssueModal = ({ onClose, onSubmit, darkMode, issue, isEdit }: any) =
             <textarea name="description" value={formData.description} onChange={handleChange} className={`mt-1 block w-full border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'} rounded-xl shadow-sm p-2`} />
           </div>
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">{isClient ? t('cancel') : t('cancel')}</button>
-            <button type="submit" className={`${darkMode ? 'bg-dark-primary hover:bg-dark-focus' : 'bg-light-primary hover:bg-light-focus'} text-amber-100 px-4 py-2 rounded`}>{isEdit ? (isClient ? t('save_changes') : t('save_changes')) : (isClient ? t('add_issue') : t('add_issue'))}</button>
+            <button type="button" onClick={onClose} className="bg-white/[0.05] border border-white/10 rounded-full text-red-500 p-2
+            shadow-[inset_0px_1px_0px_0px_rgba(255,255,255,0.5),inset_0px_0px_20px_0px_rgba(255,255,255,0.05),inset_0px_-4px_6px_0px_rgba(100,200,255,0.3),0px_20px_40px_-10px_rgba(0,0,0,0.6)]"><X size={20}/></button>
+            <button type="submit" className="bg-white/[0.05] border border-white/10 rounded-full text-green-500 p-2 
+            shadow-[inset_0px_1px_0px_0px_rgba(255,255,255,0.5),inset_0px_0px_20px_0px_rgba(255,255,255,0.05),inset_0px_-4px_6px_0px_rgba(100,200,255,0.3),0px_20px_40px_-10px_rgba(0,0,0,0.6)]">{isEdit ? <Pencil size={20}/> : <Upload size={20}/>}</button>
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -584,6 +616,8 @@ const IssueManager = ({ darkMode, elementId, elementName }: { darkMode: boolean,
     }
   };
 
+  
+
   const handleOpenResponseHistoryModal = async () => {
     if (!isLoggedIn) {
       setToast({ message: t('please_login_to_view_response_history'), type: 'error' });
@@ -608,11 +642,12 @@ const IssueManager = ({ darkMode, elementId, elementName }: { darkMode: boolean,
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-dvh">
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-lg font-bold">{isClient ? t('issue_manager') : t('issue_manager')}</h2>
-        <button onClick={handleOpenCreateModal} className={`${darkMode ? "bg-dark-primary hover:bg-dark-focus" : "bg-light-primary hover:bg-light-focus"} text-amber-100 px-2 py-1 rounded`}>
-          {isClient ? t('create') : t('create')}
+        <button onClick={handleOpenCreateModal} className={`${darkMode ? "" : ""}bg-white/[0.05] border border-white/10 rounded-full text-green-500 p-1 
+            shadow-[inset_0px_1px_0px_0px_rgba(255,255,255,0.5),inset_0px_0px_20px_0px_rgba(255,255,255,0.05),inset_0px_-4px_6px_0px_rgba(100,200,255,0.3),0px_20px_40px_-10px_rgba(0,0,0,0.6)]`}>
+          <Plus size={30}/>
         </button>
       </div>
 

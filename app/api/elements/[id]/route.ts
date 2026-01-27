@@ -6,7 +6,11 @@ export async function GET(request: NextRequest, context: any) {
   try {
     const client = await clientPromise;
     const db = client.db("model-viewer");
-    const id = context.params.id;
+
+    // ★ 正確做法：先 await 整個 params 對象
+    const params = await context.params;
+    const id = params.id;
+
 
     let query;
     if (ObjectId.isValid(id)) {

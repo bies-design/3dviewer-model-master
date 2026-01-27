@@ -39,6 +39,7 @@ export default function LoginModal({ onClose = () => {}, onSwitchToRegister }: L
       }
       setIsLoggedIn(true);
       setUser(data.user);
+      console.log("here is the data",data);
       onClose();
     } catch (err: any) {
       setError(err.message);

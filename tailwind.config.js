@@ -10,7 +10,7 @@ const config = {
   theme: {
     extend: {
       backgroundImage: {
-        'main-gradient': 'linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)), radial-gradient(circle at 25% 65%, rgba(0, 20, 80, 0.7) 0%, transparent 50%), radial-gradient(circle at 75% 65%, rgba(92, 0, 21, 0.5) 0%, transparent 50%)',
+        'main-gradient': "url('/TecoBG.png')",
       },
       fontFamily: {
         sans: ["var(--font-sans)"],
@@ -298,6 +298,17 @@ const config = {
         'light-danger-800': '#610726',
         'light-danger-900': '#310413',
         'white-alpha-10': 'rgba(255, 255, 255, 0.1)',
+      },
+      animation: {
+        'wave-slow': 'wave 7s linear infinite alternate',
+        'wave-fast': 'wave 4s linear infinite alternate',
+      },
+      keyframes: {
+        wave: {
+          '0%': { transform: 'translateX(0) rotate(0deg)' },
+          '50%': { opacity: 0.5 },
+          '100%': { transform: 'translateX(20%) rotate(2deg)' },
+        }
       },
     },
   },

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import * as OBC from "@thatopen/components";
 import * as OBCF from "@thatopen/components-front";
 import * as FRAGS from "@thatopen/fragments";
@@ -26,15 +27,21 @@ import SideBarTab from "@/components/IFCViewer/SideBarTab";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import Link from "next/link";
-import { LogIn, LogOut, User as UserIcon, Pause, Play, Download } from "lucide-react";
-import { Tooltip } from "@heroui/react";
+import { LogIn, LogOut, User as UserIcon, Pause, Play, Download, Menu, Undo2, Layers, Globe, Layers2, TriangleAlert, ChevronRight, BookAlert, Box, AirVent, Cctv, DoorClosedLocked } from "lucide-react";
+import { Tooltip,Avatar } from "@heroui/react";
 import DescriptionPanel from "@/components/IFCViewer/DescriptionPanel";
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
 import ProjectsPanel from "@/components/IFCViewer/ProjectsPanel";
 import AIPanel from "@/components/IFCViewer/AIPanel";
 import { useAppContext } from "@/contexts/AppContext";
-import DataPanel from "@/components/IFCViewer/DataPanel";
+import { useTranslation } from "react-i18next";
+// 
+import TopsideDataPanel from "@/components/IFCViewer/datapanel/TopsideDataPanel";
+import RightsideDataPanel from "@/components/IFCViewer/datapanel/RightsideDataPanel";
+import LeftsideDataPanel from "@/components/IFCViewer/datapanel/LeftsideDataPanel";
+import FloorModePanel from "@/components/IFCViewer/FloorModePanel";
+import RightSideDataPanelForFloor from "@/components/IFCViewer/datapanel/RightSideDataPanelForFloor";
 import FloorPlan from "@/components/IFCViewer/FloorPlan";
 import AssetsPanel from "@/components/IFCViewer/AssetsPanel";
 import ShadowScenePanel from "@/components/IFCViewer/ShadowScenePanel";
@@ -42,9 +49,49 @@ import PreferenceSettings from "@/components/IFCViewer/PreferenceSettings";
 import UserPanel from "@/components/IFCViewer/UserPanel";
 import UserManagementPanel from "@/components/IFCViewer/UserManagementPanel";
 import UploadLinkDataPanel from "@/components/IFCViewer/UploadLinkDataPanel";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import R2ModelPreviewModal from "@/components/IFCViewer/R2ModelPreviewModal";
+import dayjs from 'dayjs';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import DeviceModePanel from "@/components/IFCViewer/DeviceModePanel";
+import LiquidFillGauge from "@/components/IFCViewer/LiquidFillGauge";
+import RightSideDataPanelForAllFloor from "@/components/IFCViewer/datapanel/RightSideDataPanelForAllFloor";
+import WarningHistoryModal from "@/components/WarningHistoryModal";
+import CameraViewerPanel from "@/components/camera/CameraViewerPanel";
+import LinkedCameraPanel from "@/components/camera/LinkedCameraPanel";
+import { createMarkerElement } from "@/app/markerElements/CCTVMarkerDiv";
+
+// --- 模擬圖表數據 ---
+  const powerData = [
+    { time: '10:00', val: 42 }, { time: '11:00', val: 29 }, { time: '12:00', val: 55 },
+    { time: '13:00', val: 48 }, { time: '14:00', val: 32 }, { time: '15:00', val: 50 },
+    { time: '16:00', val: 22 }, { time: '17:00', val: 18 }, { time: '18:00', val: 30 },
+    { time: '19:00', val: 58 },
+  ];
+
+  const tempData1 = [
+    { time: '10:00', val: 24 }, { time: '12:00', val: 26 }, { time: '14:00', val: 29 },
+    { time: '16:00', val: 25 }, { time: '18:00', val: 23 },
+  ];
+
+  const tempData2 = [
+    { time: '10:00', in: 50, out: 20 }, { time: '12:00', in: 55, out: 22 }, 
+    { time: '14:00', in: 65, out: 25 }, { time: '16:00', in: 58, out: 23 }, 
+    { time: '18:00', in: 52, out: 21 },
+  ];
+  
+// --- 輔助函式：從 ModelID 解析樓層 ---
+const extractFloorFromModelId = (modelId: string): string | null => {
+  try {
+    let tempId = modelId.replace('.ifc.frag', '');
+    if (tempId.endsWith('_')) tempId = tempId.slice(0, -1);
+    const parts = tempId.split('_');
+    return parts[parts.length - 1];
+  } catch (e) {
+    return null;
+  }
+};
 
 interface UploadedModel {
   _id: string; // Changed from id to _id to reflect MongoDB ID
@@ -84,12 +131,15 @@ type TResultGroup = {
 };
 
 export default function IFCViewerContainer() {
+  const router = useRouter();
   const {
     darkMode, toggleTheme, uploadedModels, setUploadedModels, viewerApi, selectedModelUrl, isLoggedIn, setIsLoggedIn, user, setUser,
     uploadProgress, uploadTime, uploadStatus, showUploadStatus, setShowUploadStatus, setUploadStatus,
     isUploadPaused, setIsUploadPaused,
     downloadProgress, setDownloadProgress, downloadStatus, setDownloadStatus, showDownloadProgress, setShowDownloadProgress,
-    showProgressModal, setShowProgressModal, progress, setProgress, setToast
+    showProgressModal, setShowProgressModal, progress, setProgress, setToast,
+    viewMode, setViewMode, deviceViewMode, setDeviceViewMode, selectedFloor, setSelectedFloor, selectedDevice, setSelectedDevice, selectedFragId, setSelectedFragId,
+    selectedDeviceName, setSelectedDeviceName
   } = useAppContext();
   const workerRef = useRef<Worker | null>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -103,15 +153,18 @@ export default function IFCViewerContainer() {
   const areaMeasurerRef = useRef<OBCF.AreaMeasurement | null>(null);
   const viewpointsRef = useRef<OBC.Viewpoints | null>(null);
   const highlighterRef = useRef<OBCF.Highlighter | null>(null);
+  const outlinerRef = useRef<OBCF.Outliner | null>(null);
+  const markerRef = useRef<OBCF.Marker | null>(null);
+  const boxerRef = useRef<OBC.BoundingBoxer | null>(null);
   const colorizeRef = useRef<{ enabled: boolean }>({ enabled: false });
   const coloredElements = useRef<Record<string, Set<number>>>({});
   const searchElementRef = useRef<HomePanelRef>(null);
-
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+  // const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isUserManagementPanelOpen, setIsUserManagementPanelOpen] = useState(false);
-  const [infoLoading, setInfoLoading] = useState(false);
+  // const [infoLoading, setInfoLoading] = useState(false);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [selectedLocalId, setSelectedLocalId] = useState<number | null>(null);
   const [selectedAttrs, setSelectedAttrs] = useState<ItemProps>({}); // Changed to empty object
@@ -120,8 +173,8 @@ export default function IFCViewerContainer() {
   const [projection, setProjection] = useState<"Perspective" | "Orthographic">("Perspective");
   const [navigation, setNavigation] = useState<"Orbit" | "FirstPerson" | "Plan">("Orbit");
   const [isGhost, setIsGhost] = useState(false);
-  const [isShadowed, setIsShadowed] = useState(false);
-  const [isColorShadowsEnabled, setIsColorShadowsEnabled] = useState(false);
+  const [isShadowed, setIsShadowed] = useState(true);
+  const [isColorShadowsEnabled, setIsColorShadowsEnabled] = useState(true);
   const [bcfMode, setBcfMode] = useState(false);
   const [activeTool, setActiveTool] = useState<"clipper" | "length" | "area" | "colorize" | "collision" | "search" | "multi-select" | null>(null);
   const [originalSelectStyle, setOriginalSelectStyle] = useState<any>(null);
@@ -147,6 +200,7 @@ export default function IFCViewerContainer() {
   const activeToolRef = useRef(activeTool);
   const restListener = useRef<(() => Promise<void>) | null>(null);
   const [hasAutoLoadedModels, setHasAutoLoadedModels] = useState(false); // New state to track auto-loading
+  const [isViewerReady, setIsViewerReady] = useState(false);
 
   const [showR2HistoryPanel, setShowR2HistoryPanel] = useState(false); // New state for R2 history panel
   const [showPreviewModal, setShowPreviewModal] = useState(false); // New state for PreviewModal
@@ -167,8 +221,25 @@ export default function IFCViewerContainer() {
   });
   const [showVisitors, setShowVisitors] = useState(true);
   const [intervalMs, setIntervalMs] = useState(5000);
+
+  const [showWarningModal, setShowWarningModal] = useState(false);
+
   const [selectedColor, setSelectedColor] = useState<string>("#ffa500");
   const selectedColorRef = useRef(selectedColor);
+
+  const [isMonitorOpen, setIsMonitorOpen] = useState<boolean>(false);
+  const [isLinkedCameraPanelOpen,setIsLinkedCameraPanelOpen] = useState<boolean>(false);
+  const [linkedCameras, setLinkedCameras] = useState<any[]>();
+
+  const { t } = useTranslation();
+
+  // ★★★ 新增：用 Ref 追蹤 setViewMode ★★★
+  const viewModeRef = useRef(viewMode);
+  const setViewModeRef = useRef(setViewMode);
+  const setSelectedFloorRef = useRef(setSelectedFloor);
+
+  const ymdhmsDate = dayjs(user?.updatedAt).format('YYYY-MM-DD HH:mm:ss');
+  const {data:session, status} = useSession();
 
   const fetchR2Models = useCallback(async () => {
     try {
@@ -200,6 +271,28 @@ export default function IFCViewerContainer() {
     }
   }, [setUploadedModels]);
 
+  const onToggle = (isOpen:boolean) => {
+    setIsSidebarOpen(isOpen);
+    if(isOpen){ 
+      setIsUserManagementPanelOpen(false);
+    }
+  }
+  const handleTabClick = (name: string) => {
+    if (name === "UserManagement") {
+      handleToggleUserManagementPanel();
+      setActiveSidebarTab(null);
+      onToggle(false);
+      return;
+    }
+
+    if (activeSidebarTab === name) {
+      setActiveSidebarTab(null);
+      onToggle(false);
+    } else {
+      setActiveSidebarTab(name);
+      onToggle(true);
+    }
+  };
   const handleAssignModelToGroup = useCallback(async (modelId: string, groupIds: string[]) => {
     try {
       const response = await fetch('/api/models/assign-group', {
@@ -220,7 +313,7 @@ export default function IFCViewerContainer() {
   }, [fetchR2Models]);
 
   const loadR2ModelIntoViewer = useCallback(async (r2FileName: string, onProgress: (progress: number) => void) => {
-    if (!fragmentsRef.current || !worldRef.current) return;
+    if (!isViewerReady || !fragmentsRef.current || !worldRef.current) return;
 
     try {
       console.log(`Loading model ${r2FileName} from R2 into viewer...`);
@@ -322,7 +415,7 @@ export default function IFCViewerContainer() {
     } finally {
       // No progress modal control here
     }
-  }, [fragmentsRef, worldRef, setUploadedModels]);
+  }, [isViewerReady,fragmentsRef, worldRef, setUploadedModels]);
 
   const handleDownloadFromDB = async (fileName: string) => {
     setShowDownloadProgress(true);
@@ -407,50 +500,138 @@ export default function IFCViewerContainer() {
     }
   };
 
-  const handleToggleInfo = () => {
-    setIsInfoOpen((prev) => !prev);
-    setIsUserManagementPanelOpen(false); // Close UserManagementPanel when Info panel is opened/closed
-    setShowR2HistoryPanel(false); // Close R2 history panel when Info panel is opened/closed
-    // Close QR Code panel when Info panel is opened/closed
-  };
+  // const handleToggleInfo = () => {
+  //   setIsInfoOpen((prev) => !prev);
+  //   setIsUserManagementPanelOpen(false); // Close UserManagementPanel when Info panel is opened/closed
+  //   setShowR2HistoryPanel(false); // Close R2 history panel when Info panel is opened/closed
+  //   // Close QR Code panel when Info panel is opened/closed
+  // };
  
   const handleToggleUserManagementPanel = () => {
     setIsUserManagementPanelOpen((prev) => !prev);
-    setIsInfoOpen(false); // Close InfoPanel when UserManagementPanel is opened/closed
+    // setIsInfoOpen(false); // Close InfoPanel when UserManagementPanel is opened/closed
     setShowR2HistoryPanel(false); // Close R2 history panel when UserManagementPanel is opened/closed
   };
  
   const handleOpenR2History = () => {
     setShowR2HistoryPanel(prev => !prev); // Toggle the state
-    setIsInfoOpen(false); // Close info panel when R2 history panel is opened
+    // setIsInfoOpen(false); // Close info panel when R2 history panel is opened
     setIsUserManagementPanelOpen(false); // Close user management panel when R2 history panel is opened
   };
+  //管理選種element後跳轉樓層sidebar改變的邏輯
+  useEffect(() => {
+      setViewModeRef.current = setViewMode;
+      setSelectedFloorRef.current = setSelectedFloor;
+  }, [setViewMode, setSelectedFloor]);
+  //不管loggin
+  // useEffect(() => {
+  //   if (!isLoggedIn) {
+  //     setShowLoginModal(true);
+  //   } else {
+  //     setShowLoginModal(false);
+  //     // Automatically open HomePanel and set active tab to Home after login
+  //     setIsSidebarOpen(true);
+  //     setActiveSidebarTab("Home");
+  //   }
+  // }, [isLoggedIn]);
+
+  // useEffect(() => {
+  //   // Trigger selectAll and loadSelectedModels when HomePanel is opened, but only once
+  //   //isLoggedIn && isSidebarOpen &&  activeSidebarTab === "Home" && 
+  //   // , isLoggedIn, isSidebarOpen, activeSidebarTab, 
+  //   if (searchElementRef.current && !hasAutoLoadedModels) {
+  //     // Ensure the HomePanel is fully rendered and its ref is available
+  //     const timer = setTimeout(async () => {
+  //       if (searchElementRef.current) {
+  //         const selectedModels = await searchElementRef.current.handleSelectAllModels(); // Wait for selectAll to complete and get selected models
+  //         await searchElementRef.current.handleLoadSelectedR2Models(selectedModels); // Pass selected models
+  //         setHasAutoLoadedModels(true); // Mark as loaded
+  //       }
+  //     }, 500); // A small delay to ensure rendering and model availability
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [searchElementRef.current, hasAutoLoadedModels]);
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      setShowLoginModal(true);
-    } else {
-      setShowLoginModal(false);
-      // Automatically open HomePanel and set active tab to Home after login
-      setIsSidebarOpen(true);
-      setActiveSidebarTab("Home");
+    // 確保組件準備好後立即呼叫
+    fetchR2Models();
+  }, [fetchR2Models]);
+
+  // ✅ 新增：當 uploadedModels 有資料時，自動載入它們到 Viewer
+useEffect(() => {
+  // 1. 檢查 Viewer 核心是否準備好
+  if (!componentsRef.current || !fragmentsRef.current || !worldRef.current) return;
+  
+  // 2. 檢查是否已經自動載入過 (避免重複執行)
+  if (hasAutoLoadedModels) return;
+
+  // 3. 檢查是否有模型資料
+  if (uploadedModels.length === 0) return;
+
+  const autoLoadSequence = async () => {
+    console.log("🚀 自動載入程序啟動...");
+    
+    // 鎖定狀態，避免重複跑
+    setHasAutoLoadedModels(true); 
+
+    // 過濾出有效的 R2 模型 (排除沒有 r2FileName 的)
+    const r2Models = uploadedModels.filter(m => m.r2FileName);
+
+    if (r2Models.length === 0) {
+      console.log("沒有 R2 模型需要載入");
+      return;
     }
-  }, [isLoggedIn]);
 
-  useEffect(() => {
-    // Trigger selectAll and loadSelectedModels when HomePanel is opened, but only once
-    if (isLoggedIn && isSidebarOpen && activeSidebarTab === "Home" && searchElementRef.current && !hasAutoLoadedModels) {
-      // Ensure the HomePanel is fully rendered and its ref is available
-      const timer = setTimeout(async () => {
-        if (searchElementRef.current) {
-          const selectedModels = await searchElementRef.current.handleSelectAllModels(); // Wait for selectAll to complete and get selected models
-          await searchElementRef.current.handleLoadSelectedR2Models(selectedModels); // Pass selected models
-          setHasAutoLoadedModels(true); // Mark as loaded
+    // --- [新增] 開啟進度條 ---
+    setShowProgressModal(true);
+    setProgress(0);
+
+    const totalModels = r2Models.length;
+    let loadedCount = 0;
+
+    // 依序載入模型
+    for (const model of r2Models) {
+      // 檢查場景中是否已經有這個模型 (防止重複)
+      const isLoaded = fragmentsRef.current?.list.has(model.r2FileName);
+      
+      if (!isLoaded && model.r2FileName) {
+        try {
+          await loadR2ModelIntoViewer(model.r2FileName, (modelProgress) => {
+            // --- [新增] 計算總體進度 ---
+            // 公式：(已經載入完的模型數量 * 100 + 當前正在載入的模型進度) / 總模型數量
+            const overallProgress = ((loadedCount * 100) + modelProgress) / totalModels;
+            setProgress(Math.round(overallProgress));
+            
+            console.log(`正在載入 ${model.name}: ${modelProgress.toFixed(0)}% (總進度: ${overallProgress.toFixed(0)}%)`);
+          });
+        } catch (err) {
+          console.error(`載入模型失敗: ${model.name}`, err);
+          setToast({ message: `Failed to load ${model.name}`, type: "error" });
         }
-      }, 500); // A small delay to ensure rendering and model availability
-      return () => clearTimeout(timer);
+      }
+      // 每處理完一個模型，計數器 +1
+      loadedCount++;
     }
-  }, [isLoggedIn, isSidebarOpen, activeSidebarTab, searchElementRef.current, hasAutoLoadedModels]);
+
+    console.log("✅ 所有模型自動載入完成");
+    
+    // --- [新增] 關閉進度條 ---
+    setProgress(100);
+    // 稍微延遲關閉，讓使用者看到 100%
+    setTimeout(() => {
+      setShowProgressModal(false);
+    }, 1000);
+  };
+
+  // 稍微延遲一點點，確保 Viewer DOM 已經完全穩定
+  const timer = setTimeout(() => {
+    autoLoadSequence();
+  }, 500);
+
+    return () => clearTimeout(timer);
+  
+    // 記得要把這些依賴加進去，確保 useEffect 能讀到最新的函式
+  }, [uploadedModels, hasAutoLoadedModels, componentsRef.current, setShowProgressModal, setProgress, setToast, loadR2ModelIntoViewer]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -462,15 +643,15 @@ export default function IFCViewerContainer() {
     }
   }, [mainDisplayGroupId]);
 
-  useEffect(() => {
-    // Resize the viewer after the sidebar transition is complete
-    setTimeout(() => {
-      if (worldRef.current?.renderer && cameraRef.current) {
-        worldRef.current.renderer.resize();
-        cameraRef.current.updateAspect();
-      }
-    }, 300);
-  }, [isSidebarOpen]);
+  // useEffect(() => {
+  //   // Resize the viewer after the sidebar transition is complete
+  //   setTimeout(() => {
+  //     if (worldRef.current?.renderer && cameraRef.current) {
+  //       worldRef.current.renderer.resize();
+  //       cameraRef.current.updateAspect();
+  //     }
+  //   }, 300);
+  // }, [isSidebarOpen]);
 
   useEffect(() => {
     isAddingToGroupRef.current = isAddingToGroup;
@@ -601,163 +782,270 @@ export default function IFCViewerContainer() {
       clipperRef.current = clipper;
 
       const highlighter = components.get(OBCF.Highlighter);
+      
       highlighter.setup({ world });
-      highlighter.zoomToSelection = true;
+      //避免與後免選中element篩選樓層的focus打架
+      highlighter.zoomToSelection = false;
       highlighterRef.current = highlighter;
 
+      const outliner = components.get(OBCF.Outliner);
+      outliner.world = world;
+      outliner.enabled = true;
+      outliner.color = new THREE.Color(0xbcf124);
+      outliner.fillColor = new THREE.Color("#9519c2");
+      outliner.fillOpacity = 0.5;
+
+      outlinerRef.current = outliner;
+
+      const marker = components.get(OBCF.Marker);
+      marker.threshold = 10;
+      marker.autoCluster = true;
+      
+      markerRef.current = marker;
+
+      const boxer = components.get(OBC.BoundingBoxer);
+
+      boxerRef.current = boxer;
+
+      // 原本的監聽highlight並且連接到infopanel的function
+      // highlighter.events.select.onHighlight.add(async (selection) => {
+      //   console.log('Highlight selection (IDs only):', selection);
+
+      //   // --- Start: Log detailed properties on click ---
+      //   for (const fragmentId in selection) {
+      //     const model = fragmentsRef.current?.list.get(fragmentId);
+      //     if (!model) continue;
+      //     const ids = Array.from(selection[fragmentId]);
+      //     const properties = await model.getItemsData(ids, {
+      //       attributesDefault: true,
+      //       relations: { IsDefinedBy: { attributes: true, relations: true } },
+      //     });
+      //     console.log(`Detailed properties for ${ids.length} element(s) in model ${fragmentId}:`, properties);
+      //   }
+      //   // --- End: Log detailed properties on click ---
+
+      //   if (activeToolRef.current === "colorize") {
+      //     const highlighter = highlighterRef.current;
+      //     if (!highlighter) return;
+      //     const color = selectedColorRef.current;
+      //     const styleID = `colorize-${color}`;
+      //     if (!highlighter.styles.has(styleID)) {
+      //       highlighter.styles.set(styleID, {
+      //         color: new Color(color),
+      //         opacity: 1,
+      //         transparent: false,
+      //         renderedFaces: FRAGS.RenderedFaces.ONE,
+      //       });
+      //     }
+      //     await highlighter.highlightByID(styleID, selection, false);
+      //     await highlighter.clear("select");
+      //     return;
+      //   }
+
+      //   if (!Object.keys(selection).length) {
+      //     if (!isAddingToGroupRef.current) {
+      //       setIsInfoOpen(false);
+      //       setSelectedModelId(null);
+      //       setSelectedLocalId(null);
+      //       setSelectedAttrs({}); // Clear attrs to empty object
+      //       setSelectedPsets({}); // Clear psets to empty object
+      //       setRawPsets([]);
+      //     }
+      //     setQrCodeData([]); // Clear QR code data
+      //     return;
+      //   }
+
+      //   const selectedElementsData: { modelId: string; expressId: number; attrs: ItemProps; psets: PsetDict; name: string; qrCodeUrl: string }[] = [];
+      //   const allAttrs: ItemProps[] = [];
+      //   const allPsets: PsetDict[] = [];
+      //   const allRawPsets: any[] = [];
+
+      //   for (const fragmentId in selection) {
+      //     const model = fragmentsRef.current?.list.get(fragmentId);
+      //     if (!model) continue;
+
+      //     for (const expressId of selection[fragmentId]) {
+      //       const [attrs] = await model.getItemsData([expressId], { attributesDefault: true });
+      //       const psetsRaw = await getItemPsets(model, expressId);
+      //       const psets = formatItemPsets(psetsRaw);
+
+      //       let name = `Element ${expressId}`;
+      //       const nameAttribute = attrs?.Name as OBC.IDSAttribute;
+      //       if (nameAttribute && typeof nameAttribute.value === 'string') {
+      //         name = nameAttribute.value;
+      //       }
+
+      //       // Fetch MongoDB _id for QR Code URL
+      //       let qrCodeUrl = '';
+      //       try {
+      //         const response = await fetch(`/api/elements/${expressId}`);
+      //         if (response.ok) {
+      //           const elementData = await response.json();
+      //           if (elementData && elementData._id) {
+      //             const cleanedFragmentId = fragmentId.replace('models/', '');
+      //             qrCodeUrl = `${window.location.origin}/element/${cleanedFragmentId}/${elementData._id}`;
+      //           }
+      //         }
+      //       } catch (error) {
+      //         console.error('Error fetching element data for QR code:', error);
+      //       }
+
+      //       selectedElementsData.push({ modelId: fragmentId, expressId, attrs: attrs ?? {}, psets, name, qrCodeUrl });
+      //       allAttrs.push(attrs ?? {});
+      //       allPsets.push(psets);
+      //       allRawPsets.push(psetsRaw);
+      //     }
+      //   }
+
+      //   if (isAddingToGroupRef.current && activeAddGroupIdRef.current !== null) {
+      //     // Handle adding to group for multi-select
+      //     for (const elementData of selectedElementsData) {
+      //       const newItem = {
+      //         id: `${elementData.modelId}-${elementData.expressId}`,
+      //         name: elementData.name,
+      //         expressID: elementData.expressId,
+      //         fragmentId: elementData.modelId,
+      //       };
+      //       searchElementRef.current?.addItemToGroup(String(activeAddGroupIdRef.current), newItem);
+      //     }
+      //     await highlighter.clear("select");
+      //   } else {
+      //     // Handle info panel for multi-select
+      //     if (selectedElementsData.length > 0) {
+      //       setIsInfoOpen(true);
+      //       setInfoLoading(true);
+
+      //       // Aggregate attributes
+      //       const aggregatedAttrs: ItemProps = {};
+      //       if (allAttrs.length > 0) {
+      //         const firstAttrs = allAttrs[0];
+      //         for (const key in firstAttrs) {
+      //           const allValuesForKey = allAttrs.map(attrs => attrs[key]?.value);
+      //           const allValuesAreSame = allValuesForKey.every((val, i, arr) => val === arr[0]);
+      //           if (allValuesAreSame) {
+      //             aggregatedAttrs[key] = firstAttrs[key];
+      //           } else {
+      //             aggregatedAttrs[key] = { value: "multi", type: "text" };
+      //           }
+      //         }
+      //       }
+
+      //       // Aggregate psets (simplified for now, just showing "multi" if any pset differs)
+      //       const aggregatedPsets: PsetDict = {};
+      //       if (allPsets.length > 0) {
+      //         const firstPsets = allPsets[0];
+      //         for (const psetName in firstPsets) {
+      //           const allPsetValuesForKey = allPsets.map(psets => psets[psetName]);
+      //           const allPsetValuesAreSame = allPsetValuesForKey.every((val, i, arr) => JSON.stringify(val) === JSON.stringify(arr[0]));
+      //           if (allPsetValuesAreSame) {
+      //             aggregatedPsets[psetName] = firstPsets[psetName];
+      //           } else {
+      //             aggregatedPsets[psetName] = { value: "multi", type: "text" };
+      //           }
+      //         }
+      //       }
+
+      //       setSelectedModelId(selectedElementsData[0].modelId); // Still show first modelId
+      //       setSelectedLocalId(selectedElementsData[0].expressId); // Still show first expressId
+      //       setSelectedAttrs(aggregatedAttrs);
+      //       setSelectedPsets(aggregatedPsets);
+      //       setRawPsets(allRawPsets);
+
+      //       setQrCodeData(selectedElementsData.map(data => ({ url: data.qrCodeUrl, name: data.name, modelId: data.modelId, expressId: data.expressId })));
+      //       setInfoLoading(false);
+      //     } else {
+      //       setIsInfoOpen(false);
+      //       setSelectedModelId(null);
+      //       setSelectedLocalId(null);
+      //       setSelectedAttrs({}); // Clear attrs to empty object
+      //       setSelectedPsets({}); // Clear psets to empty object
+      //       setRawPsets([]);
+      //       setQrCodeData([]);
+      //     }
+      //   }
+      // });
+      // ★★★★★ 核心修改區塊：點擊事件處理 ★★★★★
       highlighter.events.select.onHighlight.add(async (selection) => {
-        console.log('Highlight selection (IDs only):', selection);
+        if(viewModeRef.current === "floor" || viewModeRef.current === 'device' || viewModeRef.current === 'issueforms' ) return;
 
-        // --- Start: Log detailed properties on click ---
-        for (const fragmentId in selection) {
-          const model = fragmentsRef.current?.list.get(fragmentId);
-          if (!model) continue;
-          const ids = Array.from(selection[fragmentId]);
-          const properties = await model.getItemsData(ids, {
-            attributesDefault: true,
-            relations: { IsDefinedBy: { attributes: true, relations: true } },
-          });
-          console.log(`Detailed properties for ${ids.length} element(s) in model ${fragmentId}:`, properties);
-        }
-        // --- End: Log detailed properties on click ---
+        console.log('Global Highlight selection:', selection);
 
-        if (activeToolRef.current === "colorize") {
-          const highlighter = highlighterRef.current;
-          if (!highlighter) return;
-          const color = selectedColorRef.current;
-          const styleID = `colorize-${color}`;
-          if (!highlighter.styles.has(styleID)) {
-            highlighter.styles.set(styleID, {
-              color: new Color(color),
-              opacity: 1,
-              transparent: false,
-              renderedFaces: FRAGS.RenderedFaces.ONE,
-            });
-          }
-          await highlighter.highlightByID(styleID, selection, false);
-          await highlighter.clear("select");
-          return;
-        }
+        // // 2. 處理加入群組邏輯 (如果有的話)
+        // if (isAddingToGroupRef.current && activeAddGroupIdRef.current !== null) {
+        //   // ... (省略加入群組邏輯，保持原樣) ...
+        //   const fragmentId = Object.keys(selection)[0];
+        //   const expressIds = Array.from(selection[fragmentId]);
+        //   // 這裡僅示範，需配合您的 searchElementRef 邏輯
+        //   // searchElementRef.current?.addItemToGroup(...) 
+        //   await highlighter.clear("select");
+        //   return;
+        // }
+        
+        // 3. ★★★ 點擊物件 -> 隔離樓層邏輯 ★★★
+        // 取得被點擊物件的 Model ID
+        const fragmentId = Object.keys(selection)[0];
+        // 解析樓層
+        const floorName = extractFloorFromModelId(fragmentId);
 
-        if (!Object.keys(selection).length) {
-          if (!isAddingToGroupRef.current) {
-            setIsInfoOpen(false);
-            setSelectedModelId(null);
-            setSelectedLocalId(null);
-            setSelectedAttrs({}); // Clear attrs to empty object
-            setSelectedPsets({}); // Clear psets to empty object
-            setRawPsets([]);
-          }
-          setQrCodeData([]); // Clear QR code data
-          return;
-        }
-
-        const selectedElementsData: { modelId: string; expressId: number; attrs: ItemProps; psets: PsetDict; name: string; qrCodeUrl: string }[] = [];
-        const allAttrs: ItemProps[] = [];
-        const allPsets: PsetDict[] = [];
-        const allRawPsets: any[] = [];
-
-        for (const fragmentId in selection) {
-          const model = fragmentsRef.current?.list.get(fragmentId);
-          if (!model) continue;
-
-          for (const expressId of selection[fragmentId]) {
-            const [attrs] = await model.getItemsData([expressId], { attributesDefault: true });
-            const psetsRaw = await getItemPsets(model, expressId);
-            const psets = formatItemPsets(psetsRaw);
-
-            let name = `Element ${expressId}`;
-            const nameAttribute = attrs?.Name as OBC.IDSAttribute;
-            if (nameAttribute && typeof nameAttribute.value === 'string') {
-              name = nameAttribute.value;
-            }
-
-            // Fetch MongoDB _id for QR Code URL
-            let qrCodeUrl = '';
-            try {
-              const response = await fetch(`/api/elements/${expressId}`);
-              if (response.ok) {
-                const elementData = await response.json();
-                if (elementData && elementData._id) {
-                  const cleanedFragmentId = fragmentId.replace('models/', '');
-                  qrCodeUrl = `${window.location.origin}/element/${cleanedFragmentId}/${elementData._id}`;
-                }
-              }
-            } catch (error) {
-              console.error('Error fetching element data for QR code:', error);
-            }
-
-            selectedElementsData.push({ modelId: fragmentId, expressId, attrs: attrs ?? {}, psets, name, qrCodeUrl });
-            allAttrs.push(attrs ?? {});
-            allPsets.push(psets);
-            allRawPsets.push(psetsRaw);
-          }
-        }
-
-        if (isAddingToGroupRef.current && activeAddGroupIdRef.current !== null) {
-          // Handle adding to group for multi-select
-          for (const elementData of selectedElementsData) {
-            const newItem = {
-              id: `${elementData.modelId}-${elementData.expressId}`,
-              name: elementData.name,
-              expressID: elementData.expressId,
-              fragmentId: elementData.modelId,
+        if (floorName) {
+          console.log(`Detected click on floor: ${floorName}, isolating...`);
+          try {
+            // 建構查詢：找出所有該樓層的物件
+            const query = {
+              attribute: "Name",
+              operator: "include",
+              value: floorName,
+              logic: "AND"
             };
-            searchElementRef.current?.addItemToGroup(String(activeAddGroupIdRef.current), newItem);
-          }
-          await highlighter.clear("select");
-        } else {
-          // Handle info panel for multi-select
-          if (selectedElementsData.length > 0) {
-            setIsInfoOpen(true);
-            setInfoLoading(true);
 
-            // Aggregate attributes
-            const aggregatedAttrs: ItemProps = {};
-            if (allAttrs.length > 0) {
-              const firstAttrs = allAttrs[0];
-              for (const key in firstAttrs) {
-                const allValuesForKey = allAttrs.map(attrs => attrs[key]?.value);
-                const allValuesAreSame = allValuesForKey.every((val, i, arr) => val === arr[0]);
-                if (allValuesAreSame) {
-                  aggregatedAttrs[key] = firstAttrs[key];
-                } else {
-                  aggregatedAttrs[key] = { value: "multi", type: "text" };
+            // 獲取目前所有已載入的模型 ID
+            const currentLoadedModelIds = Array.from(fragments.list.keys());
+
+            // 發送請求到後端
+            const response = await fetch('/api/elements', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                  queries: [query], 
+                  modelIds: currentLoadedModelIds 
+              }),
+            });
+
+            if (response.ok) {
+              const foundElements = await response.json();
+              if (foundElements.length > 0) {
+                const finalResult: { [id: string]: Set<number> } = {};
+                
+                // 整理 ID
+                for (const element of foundElements) {
+                  const { modelId, attributes } = element;
+                  const expressID = attributes._localId.value;
+                  if (!finalResult[modelId]) finalResult[modelId] = new Set();
+                  finalResult[modelId].add(expressID);
+                }
+
+                // // 執行隔離 (只顯示該樓層)
+                // const hider = components.get(OBC.Hider);
+                // if (hider) await hider.isolate(finalResult);
+
+                // 自動聚焦到該樓層
+                if(cameraRef.current) await cameraRef.current.fitToItems(finalResult);
+
+                // 更新 Context 讓左側面板連動
+                if (setSelectedFloorRef.current) {
+                    setSelectedFloorRef.current(floorName);
+                }
+
+                // 切換 ViewMode
+                if (setViewModeRef.current) {
+                    console.log("Switching view mode to floor"); // Debug
+                    setViewModeRef.current('floor');
+                    
                 }
               }
             }
-
-            // Aggregate psets (simplified for now, just showing "multi" if any pset differs)
-            const aggregatedPsets: PsetDict = {};
-            if (allPsets.length > 0) {
-              const firstPsets = allPsets[0];
-              for (const psetName in firstPsets) {
-                const allPsetValuesForKey = allPsets.map(psets => psets[psetName]);
-                const allPsetValuesAreSame = allPsetValuesForKey.every((val, i, arr) => JSON.stringify(val) === JSON.stringify(arr[0]));
-                if (allPsetValuesAreSame) {
-                  aggregatedPsets[psetName] = firstPsets[psetName];
-                } else {
-                  aggregatedPsets[psetName] = { value: "multi", type: "text" };
-                }
-              }
-            }
-
-            setSelectedModelId(selectedElementsData[0].modelId); // Still show first modelId
-            setSelectedLocalId(selectedElementsData[0].expressId); // Still show first expressId
-            setSelectedAttrs(aggregatedAttrs);
-            setSelectedPsets(aggregatedPsets);
-            setRawPsets(allRawPsets);
-
-            setQrCodeData(selectedElementsData.map(data => ({ url: data.qrCodeUrl, name: data.name, modelId: data.modelId, expressId: data.expressId })));
-            setInfoLoading(false);
-          } else {
-            setIsInfoOpen(false);
-            setSelectedModelId(null);
-            setSelectedLocalId(null);
-            setSelectedAttrs({}); // Clear attrs to empty object
-            setSelectedPsets({}); // Clear psets to empty object
-            setRawPsets([]);
-            setQrCodeData([]);
+          } catch (err) {
+            console.error("Failed to isolate clicked floor", err);
           }
         }
       });
@@ -790,6 +1078,8 @@ export default function IFCViewerContainer() {
         world.renderer.onResize.add(updateIfManualMode);
       }
 
+      setIsViewerReady(true);
+
       return () => {
         resizeObserver.disconnect();
         if (world.camera.controls) {
@@ -799,10 +1089,13 @@ export default function IFCViewerContainer() {
           world.renderer.onResize.remove(updateIfManualMode);
         }
         components.dispose();
+        setIsViewerReady(false);
       };
     };
 
     init();
+    setViewMode('global');
+
   }, []);
 
   const extractAndSaveElements = async (model: FRAGS.FragmentsModel) => {
@@ -1002,16 +1295,17 @@ export default function IFCViewerContainer() {
     };
 
     // We only load the model from the DB once the viewer components are ready
-    // AND the user is logged in.
+    // AND the user is logged in.&& isLoggedIn
+    //  isLoggedIn,
     const initModels = async () => {
-      if (componentsRef.current && isLoggedIn && fragmentsRef.current) {
+      if (componentsRef.current  && fragmentsRef.current) {
         // loadModelFromDB(); // Keep commented out as per previous instructions
         // await loadModelFromR2(); // Load the default model first
         await fetchR2Models(); // Then fetch and merge R2 models
       }
     };
     initModels();
-  }, [componentsRef.current, isLoggedIn, fetchR2Models]);
+  }, [componentsRef.current, fetchR2Models]);
 
   useEffect(() => {
     if (!componentsRef.current || !worldRef.current) return;
@@ -1110,7 +1404,7 @@ export default function IFCViewerContainer() {
     } else {
         // No tool is active
         if (highlighter) {
-            highlighter.zoomToSelection = true;
+            highlighter.zoomToSelection = false;
             if (originalSelectStyle) {
               const style = highlighter.styles.get("select");
               if (style) {
@@ -1149,6 +1443,11 @@ export default function IFCViewerContainer() {
       measurerRef.current.mode = lengthMode;
     }
   }, [lengthMode]);
+
+  // 隨時同步最新值到 Ref
+  useEffect(() => {
+    viewModeRef.current = viewMode;
+  }, [viewMode]); 
 
   useEffect(() => {
     if (areaMeasurerRef.current) {
@@ -1499,13 +1798,76 @@ export default function IFCViewerContainer() {
   
   const onShow = async () => {
     await viewerApi.showAllElements();
-    setIsInfoOpen(false);
+    // setIsInfoOpen(false);
+    if(highlighterRef) await highlighterRef.current?.clear();
+
     setSelectedModelId(null);
     setSelectedLocalId(null);
     setSelectedAttrs({});
     setSelectedPsets({});
     setRawPsets([]);
   };
+
+  // --- 核心邏輯：切換檢視模式 ---
+  const handleSwitchViewMode = async (mode: 'global' | 'allfloors' | 'floor' | 'device' | 'warnings' | 'issueforms') => {
+    
+    // 1. ★★★ 關鍵修改：最優先切換 ViewMode ★★★
+    // 這會讓 React 在下一次渲染時直接 Unmount (移除) FloorModePanel
+    // 這樣它就不會監聽到後面的 setSelectedFloor(null) 而觸發 Effect 了
+    setViewMode(mode);
+
+    if (mode === 'global') {
+      // 2. 恢復 3D 視圖全景
+      // 這時候 FloorModePanel 已經準備要消失了，這裡的操作才是權威
+      outlinerRef.current?.clean();
+      markerRef.current?.dispose();
+
+      await onShow();
+      await onFocus();
+
+      if(selectedDevice) setSelectedDevice(null);
+      if(selectedFragId) setSelectedFragId(null);
+      if(selectedFloor) setSelectedFloor(null);
+      if(selectedDeviceName) setSelectedDeviceName(null);
+      // 3. 清除選中的樓層狀態 (為了資料一致性)
+      // 使用 null 比 "" 更安全，視你的 Context 定義而定
+      console.log("清空選中expressId",selectedDevice);
+      console.log("清空選中FragId",selectedFragId);
+      console.log("清空選中Floor",selectedFloor);
+      console.log("清空選中DeviceName",selectedDeviceName);
+    }
+    if (mode === 'allfloors') {
+      await onShow();
+      await onFocus();
+      if(selectedDevice) setSelectedDevice(null);
+      if(selectedFragId) setSelectedFragId(null);
+      if(selectedFloor) setSelectedFloor(null);
+      if(selectedDeviceName) setSelectedDeviceName(null);
+      // 3. 清除選中的樓層狀態 (為了資料一致性)
+      // 使用 null 比 "" 更安全，視你的 Context 定義而定
+      console.log("清空選中expressId",selectedDevice);
+      console.log("清空選中FragId",selectedFragId);
+      console.log("清空選中Floor",selectedFloor);
+      console.log("清空選中DeviceName",selectedDeviceName);
+    }
+    if (mode === 'floor') {
+      //恢復單層
+      // 去掉selected device跟fragId
+      if(selectedDevice) setSelectedDevice(null);
+      if(selectedFragId) setSelectedFragId(null);
+      if(selectedDeviceName) setSelectedDeviceName(null);
+      // 3. 清除選中的樓層狀態 (為了資料一致性)
+      // 使用 null 比 "" 更安全，視你的 Context 定義而定
+      console.log("清空選中expressId",selectedDevice);
+      console.log("清空選中FragId",selectedFragId);
+      console.log("清空選中DeviceName",selectedDeviceName);
+    }
+  };
+
+  const handleSwitchDeviceViewMode = (mode: 'HVAC' | 'CCTV' | 'EAC' | '') => {
+    setDeviceViewMode(mode);
+    console.log('device Mode切換成',mode);
+  }
 
   const originalColors  = useRef(new Map<
     FRAGS.BIMMaterial, 
@@ -1873,6 +2235,7 @@ export default function IFCViewerContainer() {
     fragments.core.update(true);
   };
 
+
   const onCategorySelect = (cat: string | null) => {
     setSelectedCategory(cat);
 
@@ -1919,6 +2282,29 @@ export default function IFCViewerContainer() {
     // Floor selection logic is temporarily disabled as per user request.
   };
 
+  const resetViewer = () => {
+    if (!fragmentsRef.current || !worldRef.current) return;
+    
+    // 1. 清除 3D 場景中的模型
+    for (const [modelId, fragModel] of fragmentsRef.current.list) {
+      worldRef.current.scene.three.remove(fragModel.object);
+      fragmentsRef.current.core.disposeModel(modelId);
+    }
+
+    // 2. 重置所有相關的 React State
+    setSelectedModelId(null);
+    setSelectedLocalId(null);
+    setSelectedAttrs({});
+    setSelectedPsets({});
+    setRawPsets([]);
+    
+    // 3. 清空已上傳模型列表 (但不呼叫 API 刪除)
+    setUploadedModels([]);
+    
+    // 如果需要刷新列表顯示
+    // await fetchR2Models(); // 登出後通常不需要 fetch，因為使用者已經不在了
+  };
+
   const handleLogout = async () => {
     try {
       await Promise.all([
@@ -1928,7 +2314,8 @@ export default function IFCViewerContainer() {
     } catch (error) {
       console.error('Failed to log out', error);
     } finally {
-      deleteAllModels();
+      // deleteAllModels();
+      resetViewer();
       setUser(null);
       setIsLoggedIn(false);
     }
@@ -1937,6 +2324,195 @@ export default function IFCViewerContainer() {
   useEffect(() => {
     (window as any).handleLogout = handleLogout;
   }, [handleLogout]);
+
+  // open the camera's hls or webrtc page aside
+const showCCTVDisplay = async(elementName:string) => {
+
+  const w = window.screen.availWidth/2;
+  const h = window.screen.availHeight/2;
+
+  // 計算置中座標：(螢幕總寬 - 視窗寬) / 2
+  const left = (window.screen.availWidth - w) / 2;
+
+  // 設定 Window Features
+  // popup=yes 是現代瀏覽器的標準，能讓它看起來更像獨立視窗而非分頁
+  const features = [
+    `width=${w}`,
+    `height=${h}`,
+    `left=${left}`,
+    `top=${top}`,
+    "popup=yes",
+    "noopener=yes",
+    "noreferrer=yes",
+    "resizable=yes",
+    "scrollbars=yes"
+  ].join(",");
+
+  if (!elementName) {
+    setToast({ message: "請先選擇一個設備", type: "error" });
+    return;
+  }
+  // 去掉前面的model/
+  const cleanFragId = selectedFragId.slice(7);
+    console.log(cleanFragId);
+  try{
+    // 1. 因為 selectedDevice 是數字 (expressID)，我們先去後端查它的 MongoDB _id
+    // 這裡調用你分析中提到的 API 雙重支持功能
+    const response = await fetch(`/api/elements/${selectedDevice}`);
+    const elementData = await response.json();
+    
+    if (elementData && elementData._id) {
+      // 2. 拿到 24 碼的 MongoDB ObjectId
+      const mongoId = elementData._id;
+      
+      const safeFragId = encodeURIComponent(cleanFragId);
+
+      const targetUrl = `/element/${safeFragId}/${mongoId}`;
+      console.log(`準備跳轉：模型=${safeFragId}, MongoID=${mongoId}`);
+
+      //開啟新分頁
+      window.open(targetUrl, "IssueForm", features);
+      console.log(`已在新分頁開啟設備表單：${targetUrl}`);
+
+    } else {
+      throw new Error("找不到對應的資料庫記錄");
+    }
+  }catch(error){
+    console.error("獲取 ObjectId 失敗:", error);
+    setToast({ message: "無法讀取設備詳細資料", type: "error" });
+  }
+}
+// fetch the object id for the routing
+const handleIssueForms = async() => {
+  // fetch the modelId by the app context
+  console.log(selectedFragId);
+  console.log(selectedDevice);
+
+  const w = window.screen.availWidth/2;
+  const h = window.screen.availHeight/2;
+
+  // 計算置中座標：(螢幕總寬 - 視窗寬) / 2
+  const left = (window.screen.availWidth - w) / 2;
+
+  // 設定 Window Features
+  // popup=yes 是現代瀏覽器的標準，能讓它看起來更像獨立視窗而非分頁
+  const features = [
+    `width=${w}`,
+    `height=${h}`,
+    `left=${left}`,
+    `top=${top}`,
+    "popup=yes",
+    "noopener=yes",
+    "noreferrer=yes",
+    "resizable=yes",
+    "scrollbars=yes"
+  ].join(",");
+
+  if (!selectedFragId || !selectedDevice) {
+    setToast({ message: "請先選擇一個設備", type: "error" });
+    return;
+  }
+  // 去掉前面的model/
+  const cleanFragId = selectedFragId.slice(7);
+    console.log(cleanFragId);
+  try{
+    // 1. 因為 selectedDevice 是數字 (expressID)，我們先去後端查它的 MongoDB _id
+    // 這裡調用你分析中提到的 API 雙重支持功能
+    const response = await fetch(`/api/elements/${selectedDevice}`);
+    const elementData = await response.json();
+    
+    if (elementData && elementData._id) {
+      // 2. 拿到 24 碼的 MongoDB ObjectId
+      const mongoId = elementData._id;
+      
+      const safeFragId = encodeURIComponent(cleanFragId);
+
+      const targetUrl = `/element/${safeFragId}/${mongoId}`;
+      console.log(`準備跳轉：模型=${safeFragId}, MongoID=${mongoId}`);
+
+      //開啟新分頁
+      window.open(targetUrl, "IssueForm", features);
+      console.log(`已在新分頁開啟設備表單：${targetUrl}`);
+
+    } else {
+      throw new Error("找不到對應的資料庫記錄");
+    }
+  }catch(error){
+    console.error("獲取 ObjectId 失敗:", error);
+    setToast({ message: "無法讀取設備詳細資料", type: "error" });
+  }
+}
+
+const handleLocateElementByName = useCallback(async (elementName: string) => {
+    if (!components || !fragmentsRef.current) return;
+    handleSwitchViewMode("floor");
+
+    try {
+      const response = await fetch('/api/elements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          queries: [{ id: 0, attribute: "Name", operator: "equal", value: elementName, logic: "AND" }],
+          modelIds: Array.from(fragmentsRef.current.list.keys()),
+        }),
+      });
+
+      if (!response.ok) throw new Error('Search request failed');
+      const foundElements = await response.json();
+
+      if (foundElements.length > 0) {
+        const selection: OBC.ModelIdMap = {};
+        for (const element of foundElements) {
+          const { modelId, attributes } = element;
+          console.log("這是modelId",modelId);
+          console.log("這是attributes",attributes);
+          const expressID = attributes._localId.value;
+          if (!selection[modelId]) selection[modelId] = new Set();
+          selection[modelId].add(expressID);
+        }
+        console.log("選中攝影機",selection);
+        console.log("選中攝影機",elementName);
+
+        setIsMonitorOpen(false);
+
+        markerRef.current?.dispose();
+        outlinerRef.current?.clean();
+
+        const markerLabel = createMarkerElement(elementName,{color: "#2BC3EC", 
+          onClick: (elementName) => {
+              if(elementName) showCCTVDisplay(elementName);
+          }}
+        );
+
+        await outlinerRef.current?.addItems(selection);
+
+        const point = await boxerRef.current?.getCenter(selection);
+        
+        if(worldRef.current && point) markerRef.current?.create(worldRef.current,markerLabel,point);
+        
+        console.log("已經加outline在",selection);
+
+
+
+
+        // const highlighter = components.get(OBCF.Highlighter);
+        // await highlighter.clear();
+        if (cameraRef.current) {
+          await cameraRef.current.fitToItems(selection);
+        }
+        // await highlighter.highlightByID("select", selection, true, true);
+        
+        
+
+        setToast({ message: t("locate_success", { name: elementName }), type: "success" });
+      } else {
+        setToast({ message: t("no_elements_found"), type: "error" });
+      }
+    } catch (error) {
+      console.error("Locate failed:", error);
+      setToast({ message: t("search_failed"), type: "error" });
+    }
+  }, [components, t, setToast]);
 
   const goToTopicViewpoint = async (topic: OBC.Topic) => {
     if (!componentsRef.current || !topic.viewpoints.size) return;
@@ -1967,128 +2543,129 @@ export default function IFCViewerContainer() {
   };
 
   return (
-    <div className="flex w-full h-dvh overflow-hidden">
-      <SideBar
-        darkMode={darkMode}
-        isOpen={isSidebarOpen}
-        activeTab={activeSidebarTab}
-        setActiveTab={setActiveSidebarTab}
-        onToggle={(isOpen) => {
-          setIsSidebarOpen(isOpen);
-          if (isOpen) {
-            setIsUserManagementPanelOpen(false);
-          }
-        }}
-        onToggleDescription={() => setShowDescriptionPanel(!showDescriptionPanel)}
-        isDescriptionOpen={showDescriptionPanel}
-        themeSwitcher={<ThemeSwitch darkMode={darkMode} toggleTheme={toggleTheme} />}
-        onToggleUserManagementPanel={handleToggleUserManagementPanel}
-      >
-        <SideBarTab name="Home">
-          {components && (
-            <HomePanel
-              ref={searchElementRef}
-              components={components!}
+    <div className="flex w-full h-dvh overflow-hidden relative">
+      <div className={`absolute z-20 h-dvh ${isSidebarVisible ? '' : 'hidden'}`}>
+        {/* <SideBar
+          darkMode={darkMode}
+          isOpen={isSidebarOpen}
+          activeTab={activeSidebarTab}
+          setActiveTab={setActiveSidebarTab}
+          onToggle={(isOpen) => {
+            setIsSidebarOpen(isOpen);
+            if (isOpen) {
+              setIsUserManagementPanelOpen(false);
+            }
+          }}
+          onToggleDescription={() => setShowDescriptionPanel(!showDescriptionPanel)}
+          isDescriptionOpen={showDescriptionPanel}
+          themeSwitcher={<ThemeSwitch darkMode={darkMode} toggleTheme={toggleTheme} />}
+          onToggleUserManagementPanel={handleToggleUserManagementPanel}
+        >
+          <SideBarTab name="Home">
+            {components && (
+              <HomePanel
+                ref={searchElementRef}
+                components={components!}
+                darkMode={darkMode}
+                onClose={() => {
+                  setIsSearchOpen(false);
+                  setActiveTool(null);
+                  setIsAddingToGroup(false);
+                  setActiveAddGroupId(null);
+                }}
+                onToggleAddMode={handleToggleAddMode}
+                uploadedModels={uploadedModels}
+                setUploadedModels={setUploadedModels}
+                handleAssignModelToGroup={handleAssignModelToGroup}
+                onModelGroupFilterChange={setCurrentModelGroupId}
+                fetchR2Models={fetchR2Models}
+                loadR2ModelIntoViewer={loadR2ModelIntoViewer}
+                fragmentsRef={fragmentsRef}
+                worldRef={worldRef}
+                mainDisplayGroupId={mainDisplayGroupId} // Pass mainDisplayGroupId
+                setMainDisplayGroupId={setMainDisplayGroupId} // Pass setMainDisplayGroupId
+              />
+            )}
+          </SideBarTab>
+          <SideBarTab name="Search">
+            {components && (
+              <SearchPanel
+                  components={components}
+                  darkMode={darkMode}
+                  loadedModelIds={Array.from(fragmentsRef.current?.list.keys() || [])}
+              />
+            )}
+          </SideBarTab>
+          <SideBarTab name="Models">
+            <ModelManager
               darkMode={darkMode}
-              onClose={() => {
-                setIsSearchOpen(false);
-                setActiveTool(null);
-                setIsAddingToGroup(false);
-                setActiveAddGroupId(null);
-              }}
-              onToggleAddMode={handleToggleAddMode}
               uploadedModels={uploadedModels}
               setUploadedModels={setUploadedModels}
-              handleAssignModelToGroup={handleAssignModelToGroup}
-              onModelGroupFilterChange={setCurrentModelGroupId}
-              fetchR2Models={fetchR2Models}
-              loadR2ModelIntoViewer={loadR2ModelIntoViewer}
+              // IfcUpload={IfcUpload} // Commented out as per user request
+              handleFragmentUpload={handleFragmentUpload}
+              handleJSONUpload={handleJSONUpload}
+              handleDownloadIFC={handleDownloadIFC}
+              downloadFragments={downloadFragments}
+              handleDownloadJSON={handleDownloadJSON}
+              deleteAllModels={deleteAllModels}
+              deleteSelectedModel={deleteSelectedModel}
               fragmentsRef={fragmentsRef}
               worldRef={worldRef}
+              components={components!} // Pass the components instance
+              fetchR2Models={fetchR2Models}
+              onOpenR2History={handleOpenR2History} // Pass the new handler
+              handleAssignModelToGroup={handleAssignModelToGroup} // Pass the new handler
+              onModelGroupFilterChange={setCurrentModelGroupId} // Pass the new handler to update currentModelGroupId
+              setR2HistoryRefreshCounter={setR2HistoryRefreshCounter} // Pass the refresh counter setter
+              isR2HistoryPanelOpen={showR2HistoryPanel} // Pass the state of R2 history panel
               mainDisplayGroupId={mainDisplayGroupId} // Pass mainDisplayGroupId
               setMainDisplayGroupId={setMainDisplayGroupId} // Pass setMainDisplayGroupId
             />
-          )}
-        </SideBarTab>
-        <SideBarTab name="Search">
-          {components && (
-            <SearchPanel
-                components={components}
+          </SideBarTab>
+          <SideBarTab name="Element Manager">
+            <UploadLinkDataPanel darkMode={darkMode} />
+          </SideBarTab>
+            <SideBarTab name="Floors">
+              <FloorPlan onSelectFloor={handleSelectFloor} />
+            </SideBarTab>
+            <SideBarTab name="Assets">
+              <AssetsPanel />
+            </SideBarTab> 
+            <SideBarTab name="Settings">
+              <PreferenceSettings
                 darkMode={darkMode}
-                loadedModelIds={Array.from(fragmentsRef.current?.list.keys() || [])}
-            />
-          )}
-        </SideBarTab>
-        <SideBarTab name="Models">
-          <ModelManager
-            darkMode={darkMode}
-            uploadedModels={uploadedModels}
-            setUploadedModels={setUploadedModels}
-            // IfcUpload={IfcUpload} // Commented out as per user request
-            handleFragmentUpload={handleFragmentUpload}
-            handleJSONUpload={handleJSONUpload}
-            handleDownloadIFC={handleDownloadIFC}
-            downloadFragments={downloadFragments}
-            handleDownloadJSON={handleDownloadJSON}
-            deleteAllModels={deleteAllModels}
-            deleteSelectedModel={deleteSelectedModel}
-            fragmentsRef={fragmentsRef}
-            worldRef={worldRef}
-            components={components!} // Pass the components instance
-            fetchR2Models={fetchR2Models}
-            onOpenR2History={handleOpenR2History} // Pass the new handler
-            handleAssignModelToGroup={handleAssignModelToGroup} // Pass the new handler
-            onModelGroupFilterChange={setCurrentModelGroupId} // Pass the new handler to update currentModelGroupId
-            setR2HistoryRefreshCounter={setR2HistoryRefreshCounter} // Pass the refresh counter setter
-            isR2HistoryPanelOpen={showR2HistoryPanel} // Pass the state of R2 history panel
-            mainDisplayGroupId={mainDisplayGroupId} // Pass mainDisplayGroupId
-            setMainDisplayGroupId={setMainDisplayGroupId} // Pass setMainDisplayGroupId
-          />
-        </SideBarTab>
-        <SideBarTab name="Element Manager">
-          <UploadLinkDataPanel darkMode={darkMode} />
-        </SideBarTab>
-          {/* <SideBarTab name="Floors">
-            <FloorPlan onSelectFloor={handleSelectFloor} />
-          </SideBarTab>
-          <SideBarTab name="Assets">
-            <AssetsPanel />
-          </SideBarTab> */}
-          <SideBarTab name="Settings">
-            <PreferenceSettings
-              darkMode={darkMode}
-              projection={projection}
-              navigation={navigation}
-              setProjection={setProjection}
-              setNavigation={setNavigation}
-              worldRef={worldRef}
-              components={components}
-              showGauges={showGauges}
-              setShowGauges={setShowGauges}
-              showVisitors={showVisitors}
-              setShowVisitors={setShowVisitors}
-              intervalMs={intervalMs}
-              setIntervalMs={setIntervalMs}
-              activeTab={activeSettingsTab}
-              setActiveTab={setActiveSettingsTab}
-            />
-          </SideBarTab>
-          <SideBarTab name="User" icon={
-            user?.avatar ? (
-              <Image src={user.avatar} alt="User Avatar" width={24} height={24} className="rounded-full" />
-            ) : (
-              <UserIcon />
-            )
-          }>
-            <UserPanel
-              languageSwitcher={<LanguageSwitch />}
-              handleLogout={handleLogout}
-              setShowLoginModal={setShowLoginModal}
-            />
-          </SideBarTab>
-          {/* UserManagementPanel is rendered outside SideBar for full-page expansion */}
-      </SideBar>
-
+                projection={projection}
+                navigation={navigation}
+                setProjection={setProjection}
+                setNavigation={setNavigation}
+                worldRef={worldRef}
+                components={components}
+                showGauges={showGauges}
+                setShowGauges={setShowGauges}
+                showVisitors={showVisitors}
+                setShowVisitors={setShowVisitors}
+                intervalMs={intervalMs}
+                setIntervalMs={setIntervalMs}
+                activeTab={activeSettingsTab}
+                setActiveTab={setActiveSettingsTab}
+              />
+            </SideBarTab>
+            <SideBarTab name="User" icon={
+              user?.avatar ? (
+                <Image src={user.avatar} alt="User Avatar" width={24} height={24} className="rounded-full" />
+              ) : (
+                <UserIcon />
+              )
+            }>
+              <UserPanel
+                languageSwitcher={<LanguageSwitch />}
+                handleLogout={handleLogout}
+                setShowLoginModal={setShowLoginModal}
+              />
+            </SideBarTab> */}
+            {/* UserManagementPanel is rendered outside SideBar for full-page expansion */}
+        {/* </SideBar>  */}
+      </div>
 
       {showLoginModal && (
         <LoginModal
@@ -2112,17 +2689,269 @@ export default function IFCViewerContainer() {
 
       <div className="relative flex-grow flex transition-all duration-300 min-w-0 overflow-hidden">
         <div className="relative flex-grow min-w-0 h-full">
-          <IFCViewerUI
-            darkMode={darkMode}
-            viewerRef={viewerRef}
-            uploadedModels={uploadedModels}
-          />
+            {/* <IFCViewerUI
+              darkMode={darkMode}
+              viewerRef={viewerRef}
+              uploadedModels={uploadedModels}
+              viewMode={viewMode}
+            /> */}
+            {/* Device頁面 */}
+            <div className={viewMode === 'device' ? "absolute w-[81%] h-[84.5%] bottom-10 left-88 right-4 flex gap-2 z-30": "absolute w-full h-full "}>
+              {/* 左側 */}
+              <div className={viewMode === 'device' ? " w-1/2 h-full flex flex-col gap-2":""}>
+                {/* 左一 */}
+                <div className={viewMode === 'device' ? "w-full h-1/3 flex flex-col gap-2":"hidden"}>
+                  <div className="hud-panel w-full h-full pl-4 flex justify-between items-center ">
+                    <p className="font-bold text-white text-lg tracking-wider">
+                      {selectedDeviceName ? `${selectedDeviceName} 設備基本資訊` : "請選擇一個設備"} </p>
+                    <ChevronRight size={20} className="text-gray-500 hover:cursor-pointer"/>
+                  </div>
+                  {/* 左一下 */}
+                  <div className="flex gap-2 w-full flex-1">
+                    {/* 效率流量 */}
+                    <div className="w-2/9 h-full flex flex-col gap-2">
+                      <div className="hud-panel relative p-4 flex flex-col items-center justify-center w-full h-1/2">
+                        <p className="text-xl text-white font-semibold absolute top-2 left-3">效率</p>
+                        <p className="text-2xl text-white font-mono mt-4">13.75 <span className="text-sm text-gray-300">kW/RT</span></p>
+                      </div>
+                      <div className="hud-panel relative p-4 flex flex-col items-center justify-center w-full h-1/2">
+                        <p className="text-xl text-white font-semibold absolute top-2 left-3">流量</p>
+                        <p className="text-2xl text-white font-mono mt-4">15 <span className="text-sm text-gray-300">CMH</span></p>
+                      </div>
+                    </div>
+                    {/* 碳排 */}
+                    <div className="hud-panel p-4 flex flex-col items-center w-2/9 h-full ">
+                      <div className="text-md font-semibold flex text-white h-2/10 w-full justify-center items-center border-b border-gray-600/50 ">
+                        碳排放量<span className=" text-sm ml-1 text-gray-300">(KgCo2)</span></div>
+                      <div className="flex flex-col items-center justify-center gap-2 h-8/10">
+                        <p className="text-3xl text-white font-mono font-bold">12,747</p>
+                        <p className="text-gray-300 text-sm">本月累積碳排放量</p>
+                      </div>
+                    </div>
+                    {/* 其他用電 */}
+                    <div className="hud-panel flex flex-col gap-2 p-4 w-5/9 h-full">
+                      <div className="text-md font-semibold text-white border-b border-gray-600/50 flex items-center">
+                        其他用電</div>
+                      <div className="flex-1 grid grid-cols-3 gap-y-4 gap-x-2 content-center">
+                        <div className="flex flex-col items-center justify-center">
+                          <p className="text-xl text-white font-mono">0.5</p>
+                          <p className="text-xs text-gray-300">功率因數</p>
+                        </div>
+                        <div className="flex flex-col items-center justify-center">
+                          <p className="text-xl text-white font-mono">20 <span className="text-xs">kW</span></p>
+                          <p className="text-xs text-gray-300">有功功率</p>
+                        </div>
+                        <div className="flex flex-col items-center justify-center">
+                          <p className="text-xl text-white font-mono">1.1 <span className="text-xs">kVAR</span></p>
+                          <p className="text-xs text-gray-300">無功功率</p>
+                        </div>
+                        <div className="flex flex-col items-center justify-center">
+                          <p className="text-xl text-white font-mono">1.3 <span className="text-xs">kVA</span></p>
+                          <p className="text-xs text-gray-300">視在功率</p>
+                        </div>
+                        <div className="flex flex-col items-center justify-center">
+                          <p className="text-xl text-white font-mono">15 <span className="text-xs">Hz</span></p>
+                          <p className="text-xs text-gray-300">頻率</p>
+                        </div>
+                        <div className="flex flex-col items-center justify-center">
+                          <p className="text-xl text-white font-mono">12820 <span className="text-xs">kWh</span></p>
+                          <p className="text-xs text-gray-300">總有功功率</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* 左二 3D viewer */}
+                <div ref={viewerRef} className={viewMode === 'device' ? " w-full h-1/3 hud-panel " : "absolute top-0 w-dhw h-dvh"}/>
+                {/* 左三 */}
+                <div className={viewMode === 'device' ? "w-full h-1/3 flex gap-2":"hidden"}>
+                  <div className="hud-panel p-4 flex flex-col w-full h-full">
+                    <div className="text-white text-xl font-medium border-b border-gray-600/50">環境溫度</div>
+                    <div className="flex-1 content-center">
+                      <div className="text-4xl text-white text-center">23<span className="text-gray-300 text-[20px]">°C</span></div>
+                    </div>
+                    
+                  </div>
+                  <div className="hud-panel p-4  w-full h-full">
+                    <div className="text-white text-xl font-medium mb-2 border-b border-gray-600/50">線電壓</div>
+                    <div className="flex justify-between text-xs text-gray-300 mb-1"><span>線電壓1</span> <span>300 V</span></div>
+                    <div className="flex justify-between text-xs text-gray-300 mb-1"><span>線電壓2</span> <span>310 V</span></div>
+                    <div className="flex justify-between text-xs text-gray-300"><span>線電壓3</span> <span>320 V</span></div>
+                  </div>
+                  <div className="hud-panel p-4  w-full h-full">
+                    <div className="text-white text-xl font-medium mb-2 border-b border-gray-600/50">電流</div>
+                    <div className="flex justify-between text-xs text-gray-300 mb-1"><span>電流1</span> <span className="bg-orange-500 text-black px-1 rounded">25 A</span></div>
+                    <div className="flex justify-between text-xs text-gray-300 mb-1"><span>電流2</span> <span>42.0 A</span></div>
+                    <div className="flex justify-between text-xs text-gray-300"><span>電流3</span> <span>51.9 A</span></div>
+                  </div>
+                  <div className="hud-panel p-4  w-full h-full">
+                    <div className="text-white text-xl font-medium mb-2 border-b border-gray-600/50">溫度</div>
+                    <div className="flex justify-between text-xs text-gray-300 mb-1"><span>出水溫度</span> <span>23.6°C</span></div>
+                    <div className="flex justify-between text-xs text-gray-300"><span>入水溫度</span> <span>54.6°C</span></div>
+                  </div>
+                </div>
+              </div>
+              {/* 右側 */}
+              <div className={viewMode === 'device' ? " w-1/2 h-full flex flex-col gap-2":"hidden"}>
+                {/* 右一 :能耗狀況 & 運行狀況 */}
+                <div className="w-full h-330/1000 flex gap-2">
+                  {/* 能耗狀況 (電池圖) */}
+                  <div className="hud-panel w-1/2 h-full flex flex-col items-center px-4 pt-4  gap-2">
+                    <p className="w-full text-left text-white font-semibold ">能耗狀況</p>
+                    <div className="mt-8">
+                      <div className=" relative w-16 h-32 border-2 border-green-500 rounded-lg p-1 flex flex-col-reverse items-center gap-1 shadow-[0_0_10px_rgba(34,197,94,0.5)]">
+                          {/* 電池頭 */}
+                          <div className="absolute -top-3 w-8 h-2 bg-green-500 rounded-t-sm"></div>
+                          <span className="absolute -top-10 text-green-400 font-bold text-xl">C4</span>
+                          {/* 電量條 */}
+                          <div className="w-full h-75/100 bg-gradient-to-t from-green-600 to-green-400 rounded-sm animate-pulse"></div>
+                      </div>
+                    </div>
+                    <p className=" text-white text-sm ">能耗指數</p>
+                  </div>
+                  <div className="hud-panel w-full h-full flex flex-col items-center relative overflow-hidden p-4">
+                    <p className="w-full text-left text-white font-semibold mb-2">運行狀況</p>
+                    {/* 液態狀態球 */}
+                    <LiquidFillGauge percent={50}/>
+                  </div>
+                </div>
+                {/* 右二：耗電量 (Bar Chart) */}
+                <div className="hud-panel w-full h-338/1000 p-4 flex flex-col">
+                  <p className="text-white font-semibold mb-2">耗電量 <span className="text-xs text-white">(kWh)</span></p>
+                  <div className="flex-1 w-full min-h-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={powerData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E0E0E0" />
+                        <XAxis dataKey="time" stroke="white" fontSize={10} tickLine={false} axisLine={false} />
+                        <YAxis stroke="white" fontSize={10} tickLine={false} axisLine={false} />
+                        <RechartsTooltip 
+                            contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid #444', borderRadius: '4px' }}
+                            itemStyle={{ color: '#fff' }}
+                        />
+                        <Bar dataKey="val" fill="url(#colorGradient)" radius={[2, 2, 0, 0]}>
+                            {/* 定義漸層 */}
+                        </Bar>
+                        <defs>
+                            <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#2BC3EC" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="#2BC3EC" stopOpacity={0.2}/>
+                            </linearGradient>
+                        </defs>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                {/* 右三：環境溫度 & 溫度 (Line Charts)*/}
+                <div className="w-full h-328/1000 flex gap-2">
+                  {/* 環境溫度 */}
+                  <div className="hud-panel w-full h-full p-3 flex flex-col">
+                    <div className="flex justify-between items-center mb-1">
+                        <p className="text-white font-semibold">環境溫度</p>
+                        <div className="flex items-center gap-1"><span className="w-4 h-2 bg-[#00a8ff]"></span><span className="text-[12px] text-white">環境溫度</span></div>
+                    </div>
+                    <div className="flex-1 w-full min-h-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart 
+                              data={tempData1}
+                               margin={{ top: 10, right: 20, left: -20, bottom: 0 }} // 將 left 設為負值
+                            >
+                                <defs>
+                                    <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#00a8ff" stopOpacity={0.3}/>
+                                    <stop offset="95%" stopColor="#00a8ff" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <XAxis dataKey="time" stroke="white" fontSize={9} axisLine={false} tickLine={false} />
+                                <YAxis stroke="white" fontSize={9} axisLine={false} tickLine={false} domain={['dataMin - 2', 'dataMax + 2']} />
+                                <RechartsTooltip contentStyle={{ backgroundColor: '#000', border: 'none' }} itemStyle={{fontSize:'12px'}}/>
+                                <Area type="monotone" dataKey="val" stroke="#00a8ff" fillOpacity={1} fill="url(#colorTemp)" strokeWidth={2} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                  </div>
+                  {/* 溫度 (多線) */}
+                  <div className="hud-panel w-full h-full p-3 flex flex-col">
+                    <div className="flex justify-between items-center mb-1">
+                        <p className="text-white font-semibold">溫度</p>
+                        <div className="flex gap-2">
+                            <div className="flex items-center gap-1">
+                              <span className="w-4 h-2 bg-green-400 "></span>
+                              <span className="text-[12px] text-white">出水溫度</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="w-4 h-2 bg-yellow-500 "></span>
+                              <span className="text-[12px] text-white">入水溫度</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex-1 w-full min-h-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart 
+                              data={tempData2}
+                              margin={{ top: 10, right: 20, left: -20, bottom: 0 }} // 將 left 設為負值
+                              >
+                              
+                              <defs>
+                                {/* 出水溫度漸層 - 綠色 */}
+                                <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#4ade80" stopOpacity={0.3} />
+                                  <stop offset="95%" stopColor="#4ade80" stopOpacity={0} />
+                                </linearGradient>
+                                {/* 入水溫度漸層 - 黃色 */}
+                                <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#eab308" stopOpacity={0.3} />
+                                  <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
+                                </linearGradient>
+                              </defs>
+                              <XAxis 
+                                dataKey="time" 
+                                stroke="white" 
+                                fontSize={9} 
+                                tickLine={false} 
+                                axisLine={false} 
+                              />
+                              <YAxis 
+                                stroke="white" 
+                                fontSize={9} 
+                                tickLine={false} 
+                                axisLine={false} 
+                              />
+                              <RechartsTooltip 
+                                contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: 'none', borderRadius: '4px' }} 
+                                itemStyle={{ fontSize: '12px' }} 
+                              />
+                              {/* 第一條線：出水溫度 */}
+                              <Area
+                                type="monotone"
+                                dataKey="out"
+                                stroke="#4ade80"
+                                strokeWidth={2}
+                                fillOpacity={1}
+                                fill="url(#colorOut)"
+                              />
+                              {/* 第二條線：入水溫度 */}
+                              <Area
+                                type="monotone"
+                                dataKey="in"
+                                stroke="#eab308"
+                                strokeWidth={2}
+                                fillOpacity={1}
+                                fill="url(#colorIn)"
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
           {showDescriptionPanel && (
             <div className="absolute bottom-4 right-4 w-80 z-20">
               <DescriptionPanel darkMode={darkMode} activeTool={activeTool} />
             </div>
           )}
-          <div className="absolute inset-0 max-w-full max-h-full overflow-hidden pointer-events-none [&>*]:pointer-events-auto z-40">
+          <div className=" absolute inset-0 max-w-full max-h-full overflow-hidden pointer-events-none [&>*]:pointer-events-auto z-40">
               {/* {componentsRef.current && fragmentsRef.current && worldRef.current && (
                 <ViewOrientation
                   components={componentsRef.current}
@@ -2130,52 +2959,52 @@ export default function IFCViewerContainer() {
                   world={worldRef.current}
                 />
               )} */}
+              <div className="hidden absolute z-20 left-1/2 -translate-x-[269px] w-28.1/100 h-1/12 bottom-5">
+                <ActionButtons
+                  components={components}
+                  darkMode={darkMode} 
+                  onToggleVisibility={onToggleVisibility}
+                  onIsolate={onIsolate}
+                  onFocus={onFocus}
+                  onShow={onShow}
+                  onGhost={handleGhost}
+                  isGhost={isGhost}
+                  onToggleShadowScene={handleToggleShadowSceneAndOpenSettings}
+                  isShadowed={isShadowed}
+                  onToggleColorShadows={handleToggleColorShadows}
+                  isColorShadowsEnabled={isColorShadowsEnabled}
+                  activeTool={activeTool}
+                  onSelectTool={(tool) => {
+                    const newTool = activeTool === tool ? null : tool;
+                    setActiveTool(newTool);
 
-              <ActionButtons
-                components={components}
-                darkMode={darkMode}
-                onToggleVisibility={onToggleVisibility}
-                onIsolate={onIsolate}
-                onFocus={onFocus}
-                onShow={onShow}
-                onGhost={handleGhost}
-                isGhost={isGhost}
-                onToggleShadowScene={handleToggleShadowSceneAndOpenSettings}
-                isShadowed={isShadowed}
-                onToggleColorShadows={handleToggleColorShadows}
-                isColorShadowsEnabled={isColorShadowsEnabled}
-                activeTool={activeTool}
-                onSelectTool={(tool) => {
-                  const newTool = activeTool === tool ? null : tool;
-                  setActiveTool(newTool);
-
-                  if (newTool !== null) {
-                    setShowDescriptionPanel(true);
-                    setTimeout(() => {
+                    if (newTool !== null) {
+                      setShowDescriptionPanel(true);
+                      setTimeout(() => {
+                        setShowDescriptionPanel(false);
+                      }, 3000);
+                    } else {
                       setShowDescriptionPanel(false);
-                    }, 3000);
-                  } else {
-                    setShowDescriptionPanel(false);
-                  }
-                }}
-                lengthMode={lengthMode}
-                setLengthMode={setLengthMode}
-                areaMode={areaMode}
-                setAreaMode={setAreaMode}
-                onColorize={handleColorize}
-                onClearColor={handleClearColor}
-                onToggleInfo={handleToggleInfo}
-                isInfoOpen={isInfoOpen}
-                onToggleMultiSelect={() => {
-                  setActiveTool(prev => {
-                    const newTool = prev === "multi-select" ? null : "multi-select";
-                    setShowDescriptionPanel(newTool === "multi-select");
-                    return newTool;
-                  });
-                }}
-                isMultiSelectActive={activeTool === "multi-select"}
-              />
-
+                    }
+                  }}
+                  lengthMode={lengthMode}
+                  setLengthMode={setLengthMode}
+                  areaMode={areaMode}
+                  setAreaMode={setAreaMode}
+                  onColorize={handleColorize}
+                  onClearColor={handleClearColor}
+                  // onToggleInfo={handleToggleInfo}
+                  // isInfoOpen={isInfoOpen}
+                  onToggleMultiSelect={() => {
+                    setActiveTool(prev => {
+                      const newTool = prev === "multi-select" ? null : "multi-select";
+                      setShowDescriptionPanel(newTool === "multi-select");
+                      return newTool;
+                    });
+                  }}
+                  isMultiSelectActive={activeTool === "multi-select"}
+                />
+              </div>
               <LoadingModal darkMode={darkMode} progress={progress} show={showProgressModal} />
           </div>
           
@@ -2216,14 +3045,236 @@ export default function IFCViewerContainer() {
             />
           )}
 
-          {!isInfoOpen && !isUserManagementPanelOpen && !showDescriptionPanel && !showR2HistoryPanel && (
-            <DataPanel
-              darkMode={darkMode}
-              showGauges={showGauges}
-              showVisitors={showVisitors}
-              intervalMs={intervalMs}
-            />
+          {!isUserManagementPanelOpen && !showDescriptionPanel && !showR2HistoryPanel && (
+            <>
+              {/* 最頂部數據欄 (保持不變) */}
+              <TopsideDataPanel darkMode={darkMode} isSidebarVisible={isSidebarVisible} setIsSidebarVisible={setIsSidebarVisible} />
+
+              {/* 模式切換側邊欄 (位於左側最邊緣) */}
+              {/* 這裡佔據 left-0 到 left-20 之間的空間，作為模式切換器 */}
+              <div className={`${isSidebarVisible ? "w-fit h-fit" : "hidden" }  transform -skew-x-[-40deg] absolute -translate-x-1/2 left-[calc(50%-345px)] top-3/100 z-30 gap-1 flex backdrop-blur-md ${
+                darkMode ? "bg-transparent backdrop-blur-2xl border-gray-700" : "bg-white/80 border-gray-200"
+              }`}>
+                {/* Global 按鈕 */}
+                <Tooltip content="全景模式 (Global)" placement="bottom">
+                  <button
+                    onClick={() => handleSwitchViewMode('global')}
+                    className={`p-3 transition-all duration-200 ${
+                      viewMode === 'global'
+                        ? "bg-[#2EC2EA] text-white scale-110"
+                        : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                    }`}
+                  >
+                    <Globe size={30} className="transform -skew-x-[40deg]"/>
+                  </button>
+                </Tooltip>
+                
+                {/* AllFloors 按鈕 */}
+                <Tooltip content="分層模式 (All Floors)" placement="bottom">
+                  <button
+                    onClick={() => handleSwitchViewMode('allfloors')}
+                    className={`p-3  transition-all duration-200  ${
+                      viewMode === 'allfloors'
+                        ? "bg-[#2EC2EA] text-white scale-110"
+                        : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                    }`}
+                  >
+                    <Layers size={30} className="transform -skew-x-[40deg]"/>
+                  </button>
+                </Tooltip>
+
+                {/* Floor 按鈕 */}
+                <Tooltip content="單層模式 (Floor)" placement="bottom">
+                  <button
+                    onClick={() => handleSwitchViewMode('floor')}
+                    className={`p-3  transition-all duration-200  ${
+                      (viewMode === 'floor' || viewMode === 'device')
+                        ? "bg-[#2EC2EA] text-white scale-110"
+                        : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                    }`}
+                  >
+                    <Layers2 size={30} className="transform -skew-x-[40deg]"/>
+                  </button>
+                </Tooltip>
+                
+                {/* warning 按鈕 */}
+                <Tooltip content="歷史警告表單(Warnings)" placement="bottom">
+                  <button
+                    onClick={() => setShowWarningModal(!showWarningModal)}
+                    className={`p-3  transition-all duration-200  ${
+                      showWarningModal
+                        ?"bg-[#2EC2EA] text-white scale-110 shadow-[0_0_15px_rgba(46,194,234,0.6)]" // 開啟時發亮
+                        :"text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100" 
+                    }`}
+                  >
+                    <TriangleAlert size={30} className="transform -skew-x-[40deg]"/>
+                  </button>
+                </Tooltip>
+              </div>
+              {/* 標題下按鈕 */}
+              <div className={`${(viewMode === 'floor' || viewMode === 'device')? "absolute ":"hidden"} -translate-x-1/2 left-1/2 top-55/1000 z-30 gap-0 flex ${
+                darkMode ? "bg-transparent " : "bg-white/80 border-gray-200"}`}> 
+                  {/* Device按鈕 */}
+                  <Tooltip content="設備模式 (Device)" placement="bottom">
+                    <button
+                      onClick={() => {
+                        if(viewMode === 'device') {
+                          handleSwitchViewMode('floor');
+                        }else{
+                          handleSwitchViewMode('device');
+                        }
+                      }}
+                      className={`px-9  py-1 transition-all duration-200 border-r-1 border-[#2EC2EA] ${
+                        viewMode === 'device'
+                          ? "bg-[#2EC2EA] text-white scale-110"
+                          : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                      }`}
+                    >
+                      <Box size={20} className=""/>
+                    </button>
+                  </Tooltip>
+                  {/* hvac按鈕 */}
+                  <Tooltip content="暖通空調模式 (HVAC)" placement="bottom">
+                    <button
+                      onClick={() => {
+                        if(deviceViewMode === 'HVAC'){
+                          handleSwitchDeviceViewMode('');
+                        }else{
+                          handleSwitchDeviceViewMode('HVAC');
+                        }
+                      }}
+                      className={`px-9  py-1 transition-all duration-200 border-r-1 border-[#2EC2EA] ${
+                        deviceViewMode === 'HVAC'
+                          ? "bg-[#2EC2EA] text-white scale-110"
+                          : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                      }`}
+                    >
+                      <AirVent size={20} className=""/>
+                    </button>
+                  </Tooltip>
+                  {/* cctv按鈕 */}
+                  <Tooltip content="監控模式 (CCTV)" placement="bottom">
+                    <button
+                      onClick={() => {
+                        // if(deviceViewMode === 'CCTV'){
+                        //   handleSwitchDeviceViewMode('');
+                        // }else{
+                        //   handleSwitchDeviceViewMode('CCTV');
+                        // }
+                        setIsMonitorOpen(true);
+                      }}
+                      className={`px-9  py-1 transition-all duration-200 border-r-1 border-[#2EC2EA] ${
+                        deviceViewMode === 'CCTV'
+                          ? "bg-[#2EC2EA] text-white scale-110"
+                          : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                      }`}
+                    >
+                      <Cctv size={20} className=""/>
+                    </button>
+                  </Tooltip>
+                  {/* 門禁按鈕 */}
+                  <Tooltip content="門禁系統 (EAC)" placement="bottom">
+                    <button
+                      onClick={() => {
+                        if(deviceViewMode === 'EAC'){
+                          handleSwitchDeviceViewMode('');
+                        }else{
+                          handleSwitchDeviceViewMode('EAC');
+                        }
+                      }}
+                      className={`px-9 py-1 transition-all duration-200  ${
+                        deviceViewMode === 'EAC'
+                          ? "bg-[#2EC2EA] text-white scale-110"
+                          : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                      }`}
+                    >
+                      <DoorClosedLocked size={20} className=""/>
+                    </button>
+                  </Tooltip>
+                  {/* issue forms
+                  <Tooltip content="報修表單(Issue Forms)" placement="bottom">
+                  <button
+                    onClick={() => {
+                      handleIssueForms();
+                    }}
+                    className={`p-3  transition-all duration-200  ${
+                      viewMode === 'issueforms'
+                        ? "bg-[#2EC2EA] text-white scale-110"
+                        : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                    }`}
+                  >
+                    <BookAlert size={30} className="transform -skew-x-[-40deg]"/>
+                  </button>
+                </Tooltip> */}
+              </div>
+              
+              {/* === Global 模式面板 === */}
+              {viewMode === 'global' && (
+                <>
+                  <LeftsideDataPanel darkMode={darkMode} />
+                  <RightsideDataPanel darkMode={darkMode} />
+                </>
+              )}
+              {/* All floors模式面板 */}
+              {viewMode === 'allfloors' && (
+                <>
+                  <RightSideDataPanelForAllFloor
+                      floor={selectedFloor}
+                      loadedModelIds={Array.from(fragmentsRef.current?.list.keys() || [])}
+                      darkMode={darkMode}
+                    />
+                </>
+              )}
+              {/* === Floor and device 模式面板 === */}
+              {(viewMode === 'floor' || viewMode === 'device') && components && (
+                <>
+                  {/* 左側：FloorModePanel (注意 left-24 是為了避開剛剛新增的按鈕條) */}
+                  <div className={`absolute hud-panel left-4 top-25 bottom-10  w-80 z-10 `}> 
+                    <div className={`h-full w-full overflow-hidden }`}>
+                      <FloorModePanel
+                        components={components}
+                        darkMode={darkMode}
+                        onFocus={onFocus}
+                        loadedModelIds={Array.from(fragmentsRef.current?.list.keys() || [])}
+                        cameraRef={cameraRef}
+                        fragmentsRef={fragmentsRef}
+                        highlighterRef={highlighterRef}
+                      />
+                    </div>
+                  </div>
+                  { viewMode === 'floor' &&
+                    <RightSideDataPanelForFloor
+                      floor={selectedFloor}
+                      darkMode={darkMode}
+                    />
+                  }
+                </>
+              )}
+            </>
           )}
+
+          {/* 歷史告警彈出視窗 (Overlay) */}
+          {showWarningModal && (
+            <WarningHistoryModal componentsRef={componentsRef} onClose={()=> setShowWarningModal(false)}/>
+          )}
+          {isMonitorOpen && (
+            <div className={`fixed top-0 left-[72px] h-full w-[calc(100%-72px)] z-45 transform transition-transform duration-300 ${isMonitorOpen ? 'translate-x-0' : '-translate-x-full'} bg-black`}>
+              <CameraViewerPanel
+                onClose={() => setIsMonitorOpen(false)}
+                onLocate={handleLocateElementByName}
+              />
+            </div>
+          )}
+          {/* {isLinkedCameraPanelOpen && (
+            <div className="fixed top-0 right-0 h-full w-1/2 z-45 bg-black border-l border-zinc-800">
+              <LinkedCameraPanel
+                cameras={linkedCameras}
+                onClose={() => setIsLinkedCameraPanelOpen(false)}
+                onLocate={handleLocateElementByName}
+                darkMode={darkMode}
+              />
+            </div>
+          )} */}
           {showUploadStatus && (
             <div className="absolute top-2 left-2 bg-gray-800 p-4 rounded-lg shadow-lg w-80 z-20 draggable">
               <h3 className="text-white text-center mb-2">Upload Progress</h3>
@@ -2282,7 +3333,7 @@ export default function IFCViewerContainer() {
           )}
         </div>
         
-        <div className={`flex-shrink-0 h-full transition-all duration-300 ease-in-out ${isInfoOpen ? 'w-80' : 'w-0'} ${darkMode ? 'bg-gray-800 border-l border-gray-700' : 'bg-white border-l border-gray-200'}`}>
+        {/* <div className={`absolute right-0 top-0 flex-shrink-0 h-full transition-all duration-300 ease-in-out ${isInfoOpen ? 'w-80' : 'w-0'} ${darkMode ? 'bg-gray-800 border-l border-gray-700' : 'bg-white border-l border-gray-200'}`}>
           <div className="w-80 h-full p-4 overflow-hidden">
             {components && (
               <IFCInfoPanel
@@ -2300,7 +3351,7 @@ export default function IFCViewerContainer() {
               />
             )}
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

@@ -6,18 +6,23 @@ import { sessionOptions, SessionData } from '@/lib/session';
 import { cookies } from 'next/headers';
 import { Issue } from '@/types/mongodb';
 
+// 修改過的 沒有elementId則抓取全部 給告警紀錄
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const elementId = searchParams.get('elementId');
-
-    if (!elementId) {
-      return NextResponse.json({ error: 'elementId is required' }, { status: 400 });
-    }
-
+    // if (!elementId) {
+    //   return NextResponse.json({ error: 'elementId is required' }, { status: 400 });
+    // }
     const client = await clientPromise;
     const db = client.db('model-viewer');
-    const issues = await db.collection<Issue>('issues').find({ elementId: new ObjectId(elementId) }).toArray();
+
+    // 如果有 elementId 則篩選，否則抓取全部 (排除已刪除的)
+    const query = elementId 
+      ? { elementId: new ObjectId(elementId), deleted: { $ne: true } }
+      : { deleted: { $ne: true } };
+
+    const issues = await db.collection<Issue>('issues').find(query).toArray();
 
     return NextResponse.json(issues);
   } catch (error) {

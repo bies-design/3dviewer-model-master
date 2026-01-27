@@ -29,8 +29,8 @@ interface ActionButtonsProps {
   setAreaMode: (mode: "free" | "square") => void;
   onColorize?: (color: string) => void;
   onClearColor?: () => void;
-  onToggleInfo: () => void;
-  isInfoOpen: boolean;
+  // onToggleInfo: () => void;
+  // isInfoOpen: boolean;
   onToggleMultiSelect: () => void;
   isMultiSelectActive: boolean;
 }
@@ -53,8 +53,8 @@ export default function ActionButtons({
   setAreaMode,
   onColorize,
   onClearColor,
-  onToggleInfo,
-  isInfoOpen,
+  // onToggleInfo,
+  // isInfoOpen,
   onToggleMultiSelect,
   isMultiSelectActive,
   onToggleColorShadows, // Destructure new prop
@@ -142,9 +142,14 @@ export default function ActionButtons({
     <div
       onMouseEnter={handleMouseEnter}
       onPointerDown={(e) => e.stopPropagation()}
-      className={`absolute bottom-4 left-1/2 -translate-x-1/2 w-max max-w-[min(100%-2rem,900px)] flex flex-wrap items-end gap-4 px-4 py-2 rounded-xl shadow-lg
-        ${darkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"}`}
+      className={` backdrop-blur-md  
+        w-full h-full flex flex-wrap items-end gap-4 px-4 py-2 border border-white/10
+        ${darkMode ? "bg-transparent text-white" : "bg-white text-gray-900"}`}
     >
+      <span className="absolute top-0 left-0 w-2 h-2 border-t border-l border-[#2BC3EC]"/>
+        <span className="absolute top-0 right-0 w-2 h-2 border-r border-t border-[#2BC3EC]"/>
+        <span className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-[#2BC3EC]"/>
+        <span className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-[#2BC3EC]"/>
       <div className="flex flex-col items-center">
         <div className="flex items-center gap-2">
           <Tooltip content={isClient ? t("focus") : "Focus"}>
@@ -226,11 +231,11 @@ export default function ActionButtons({
             </Tooltip>
             {renderOptionsPanel("area")}
           </div>
-          <Tooltip content={isClient ? t("info") : "Info"}>
+          {/* <Tooltip content={isClient ? t("info") : "Info"}>
             <button onClick={onToggleInfo} className={`${buttonClass(null)} ${isInfoOpen ? (darkMode ? "bg-blue-600" : "bg-blue-400") : ""}`}>
               <Info size={18} />
             </button>
-          </Tooltip>
+          </Tooltip> */}
           {/* <div className="relative">
             <Tooltip content={isClient ? t("colorize") : "Colorize"}>
               <button onClick={() => handleToolSelect("colorize")} className={buttonClass("colorize")}>

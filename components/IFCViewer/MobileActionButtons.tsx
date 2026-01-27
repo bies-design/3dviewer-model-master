@@ -17,8 +17,8 @@ interface MobileActionButtonsProps {
   isGhost: boolean;
   onToggleShadowScene: () => void;
   isShadowed: boolean;
-  activeTool: "clipper" | "length" | "area" | "multi-select" | null;
-  onSelectTool: (tool: "clipper" | "length" | "area" | "multi-select" | null) => void;
+  activeTool: "clipper" | "length" | "area" | "multi-select" | "search" | null;
+  onSelectTool: (tool: "clipper" | "length" | "area" | "multi-select" | "search" | null) => void;
   onToggleInfo: () => void;
   isInfoOpen: boolean;
   isMultiSelectActive: boolean;
@@ -66,7 +66,7 @@ const MobileActionButtons: React.FC<MobileActionButtonsProps> = ({
     setIsMenuOpen(false);
   };
 
-  const handleToolSelect = (tool: "clipper" | "length" | "area" | "multi-select" | null) => {
+  const handleToolSelect = (tool: "clipper" | "length" | "area" | "multi-select" | "search" | null) => {
     onSelectTool(activeTool === tool ? null : tool);
   };
 

@@ -234,7 +234,7 @@ export default function IFCInfoPanel({
       ])
       .filter(([_, props]) => Object.keys(props).length > 0)
   );
-
+  
   return (
     <>
       <div className="flex flex-col h-full p-1 overflow-y-auto">

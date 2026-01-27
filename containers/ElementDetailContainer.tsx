@@ -1,8 +1,9 @@
 "use client";
 
+import { motion, PanInfo } from 'framer-motion'; 
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Pencil, Plus, List, ClipboardClock, LogIn, LogOut, Loader2, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Focus, Eye } from "lucide-react";
+import { Pencil, Plus, List, ClipboardClock, LogIn, LogOut, Loader2, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Focus, Eye, Expand, Shrink, BadgeAlert, Grip } from "lucide-react";
 import { Tabs, Tab, Chip, Button } from "@heroui/react";
 import { useAppContext } from "@/contexts/AppContext";
 import { ThemeSwitch } from "@/components/theme-switch";
@@ -14,6 +15,7 @@ import * as OBC from "@thatopen/components";
 import * as OBCF from "@thatopen/components-front";
 import * as FRAGS from "@thatopen/fragments";
 import { viewerApi } from "@/lib/viewer-api";
+import RealGlass from "@/components/Realglass";
 
 type PsetDict = Record<string, Record<string, any>>;
 
@@ -59,6 +61,7 @@ const ElementDetailContainer = () => {
   const [isHistoryModalOpen, setHistoryModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("properties");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // New state for sidebar collapse
+  const [isViewerhide, setIsViewerhide] = useState(false);
   const [isIsolated, setIsIsolated] = useState(false);
 
   useEffect(() => {
@@ -422,7 +425,7 @@ const ElementDetailContainer = () => {
                 className="w-full bg-transparent border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             ) : (
-              <span className="truncate">{key}</span>
+              <span className="truncate">{`${key}`}</span>
             )}
             {isUserDefined && editingKey !== key && (
               <button onClick={() => handleEditClick(key, true)} className="ml-2 text-gray-400 hover:text-gray-600">
@@ -450,7 +453,7 @@ const ElementDetailContainer = () => {
                 className="w-full bg-transparent border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             ) : (
-              <span className="truncate">{String(actualValue)}</span>
+              <span className="truncate">{`${String(actualValue)}`}</span>
             )}
             {(isPredefinedEditable || isUserDefined) && editingField !== key && (
               <button onClick={() => handleEditClick(key)} className="ml-2 text-blue-500 hover:text-blue-700">
@@ -518,30 +521,39 @@ const ElementDetailContainer = () => {
       setIsIsolated(true);
     }
   };
-
-  return (
-    <div className={`w-full h-dvh flex flex-col ${darkMode ? "dark bg-gray-900 text-white" : "bg-gray-100 text-black"}`}>
-      <header className="p-4 border-b border-gray-300 dark:border-gray-700 flex-shrink-0 flex justify-between items-center">
+  const handleSwipeGesture = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    // 向上滑動超過 100px 時觸發
+    if (info.offset.y < -100) {
+      setIsViewerhide(true);
+    }
+    if (info.offset.y > 100) {
+      setIsViewerhide(false);
+    }
+    console.log(isViewerhide);
+  };
+    <header className="p-4 border-b bg-transparent backdrop-blur-[2px] rounded-b-2xl border-gray-300 dark:border-gray-700 flex-shrink-0 flex justify-between items-center">
         <h1 className="text-xl font-bold truncate max-w-[calc(100%-150px)] sm:max-w-none">Element Viewer: {elementData?.attributes?.Name?.value || id}</h1>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          {isLoggedIn && user ? (
+        <div className="flex items-center gap-2 flex-wrap justify-between">
+          {/* {isLoggedIn && user ? (
             <span className="text-sm font-medium truncate max-w-[100px] sm:max-w-none hidden sm:block">{user.username}</span>
-          ) : null}
-          <ThemeSwitch darkMode={darkMode} toggleTheme={toggleTheme} />
+          ) : null} */}
+          {/* <ThemeSwitch darkMode={darkMode} toggleTheme={toggleTheme} /> */}
           {isLoggedIn ? (
-            <Button onClick={handleLogout} color="danger" size="sm" className="flex items-center text-xs">
+            <button onClick={handleLogout} className="p-2 text-xs bg-transparent rounded-md shadow-[inset_0_-2px_4px_1px_rgba(255,255,255,0.5),inset_0_-2px_3px_#000000] text-white">
               <LogOut size={16} />
-            </Button>
+            </button>
           ) : (
-            <Button onClick={() => setShowLoginModal(true)} color="primary" size="sm" className="flex items-center text-xs">
+            <button onClick={() => setShowLoginModal(true)} className="p-2 text-xs bg-transparent rounded-md shadow-[inset_0_-2px_4px_1px_rgba(255,255,255,0.5),inset_0_-2px_3px_#000000] text-white">
               <LogIn size={16} />
-            </Button>
+            </button>
           )}
         </div>
       </header>
-      
-      <div className="flex-grow flex flex-col min-h-0 h-full md:flex-row relative">
-        <div ref={viewerRef} className={`relative w-full overflow-hidden md:h-full ${isSidebarCollapsed ? 'h-full md:w-full' : ' h-1/2 md:w-1/2'} md:flex-grow transition-all duration-300`}>
+  return (
+    <div className={`w-full h-dvh relative flex flex-col bg-main-gradient  ${darkMode ? "  text-white" : "bg-gray-100 text-black"}`}>
+      {/* header was here */}
+      <div className="flex-grow flex flex-col min-h-0 h-full md:flex-row">
+        <div ref={viewerRef} className={`relative w-full overflow-hidden md:h-full ${isViewerhide? "hidden" : ""}${isSidebarCollapsed ? 'h-full md:w-full' : ' h-1/2 md:w-1/2'}  md:flex-grow transition-all duration-300`}>
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 z-10">
               <div className="text-center">
@@ -571,21 +583,30 @@ const ElementDetailContainer = () => {
         
         <button
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className={`absolute -translate-y-1/2 z-50 p-1 shadow-md transition-all duration-200 md:block
-            ${isSidebarCollapsed ? 'md:right-[1%] md:-mr-4 bg-blue-500 hover:bg-blue-600 text-white' : 'md:right-[50%] md:translate-x-[50%] bg-blue-500 hover:bg-blue-600 text-white'}
+          className={`absolute z-50 p-1 shadow-md transition-all duration-200 md:block
+            ${isViewerhide ? "hidden" : ""}
+            ${isSidebarCollapsed ? ' text-white' : '  text-white'}
           `}
         >
-          <span className="md:hidden">
-            {isSidebarCollapsed ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+          <span className="absolute  md:hidden">
+            {isSidebarCollapsed ? <Shrink size={20} /> : <Expand size={20} />}
           </span>
           <span className="hidden md:block">
-            {isSidebarCollapsed ? <ChevronLeft size={24} /> : <ChevronRight size={24} />}
+            {isSidebarCollapsed ? <Shrink size={24} /> : <Expand size={24} />}
           </span>
         </button>
 
-        <div className={`p-4 w-full overflow-y-auto flex-grow h-full flex flex-col ${isSidebarCollapsed ? 'md:w-0 hidden' : 'md:w-1/2'} transition-all duration-200`}>
+        <motion.div 
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={0.2}
+          onDragEnd={handleSwipeGesture}
+          whileDrag={{ scale: 0.98 }} // 拖曳時稍微縮小
+          className={`hud-panel p-4 w-full overflow-y-auto flex-grow h-full flex flex-col 
+            ${isViewerhide ? "fixed inset-0 z-50 h-dvh md:w-full rounded-xl":"h-full md:w-1/2"} ${isSidebarCollapsed ? 'md:w-0 hidden' : ''}`}
+          >
           <div className="flex w-full flex-col flex-shrink-0">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center relative">
               <Tabs
                 aria-label="Options"
                 selectedKey={activeTab}
@@ -618,21 +639,22 @@ const ElementDetailContainer = () => {
                   key="issues"
                   title={
                     <div className="flex items-center space-x-2">
-                      <ClipboardClock />
+                      <BadgeAlert />
                       <span>Issues</span>
                     </div>
                   }
                 />
-                <Tab
+                {/* <Tab
                   key="epd"
                   title={
-                    <div className="flex items-center space-x-2">
+                    <div className=" flex items-center space-x-2">
                       <ClipboardClock />
                       <span>EPD</span>
                     </div>
                   }
-                />
+                /> */}
               </Tabs>
+              <Grip size={25} className='absolute right-2 top-3'/>
             </div>
           </div>
           <div className="pt-4 flex-grow h-full overflow-y-auto min-h-0">
@@ -666,7 +688,7 @@ const ElementDetailContainer = () => {
                         <h3 className="font-bold text-md mb-2 border-b pb-1">Property Sets</h3>
                         {Object.entries(elementData.psets).map(([psetName, psetAttrs]) => (
                           <div key={psetName} className="mb-4">
-                            <h4 className="font-semibold text-sm italic mb-2">{psetName}</h4>
+                            <h4 className="font-semibold text-sm italic ">{`${psetName}`}</h4>
                             <div className="space-y-1 pl-4">{renderAttributes(psetAttrs)}</div>
                           </div>
                         ))}
@@ -692,7 +714,7 @@ const ElementDetailContainer = () => {
               />
             )}
           </div>
-        </div>
+        </motion.div>
       </div>
       {isHistoryModalOpen && (
         <ElementHistoryModal

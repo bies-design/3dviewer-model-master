@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Home, Layers, LayoutList, ChevronLeft } from 'lucide-react';
+import { Home, Layers, LayoutList, ChevronLeft, Search } from 'lucide-react';
 
-type PanelType = 'home' | 'floor' | 'assets';
+type PanelType = 'home' | 'search' | 'floor' | 'assets';
 
 interface MobileSidePanelToggleProps {
   selectedPanel: PanelType;
@@ -14,6 +14,7 @@ interface MobileSidePanelToggleProps {
 
 const panelIcons: { [key in PanelType]: React.ReactNode } = {
   home: <Home size={32} />,
+  search:<Search size={32}/>,
   floor: <Layers size={32} />,
   assets: <LayoutList size={32} />,
 };
@@ -45,6 +46,7 @@ const MobileSidePanelToggle: React.FC<MobileSidePanelToggleProps> = ({
             {isMenuOpen && (
               <div className="absolute top-full right-0 mt-2 bg-gray-800/80 rounded-md backdrop-blur-sm flex flex-col border border-gray-600 z-30">
                 <button onClick={() => handleSelect('home')} className="p-2 text-white hover:bg-gray-700">{panelIcons.home}</button>
+                <button onClick={() => handleSelect('search')} className="p-2 text-white hover:bg-gray-700">{panelIcons.search}</button>
                 <button onClick={() => handleSelect('floor')} className="p-2 text-white hover:bg-gray-700">{panelIcons.floor}</button>
                 <button onClick={() => handleSelect('assets')} className="p-2 text-white hover:bg-gray-700">{panelIcons.assets}</button>
               </div>

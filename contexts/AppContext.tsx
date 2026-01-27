@@ -4,6 +4,7 @@ import React, { createContext, useState, useContext, useEffect } from "react";
 import { useSession } from "next-auth/react"; // Import useSession
 import { viewerApi, ViewerAPI } from "@/lib/viewer-api";
 import { User } from "@/types/mongodb"; // Import User interface from types/mongodb
+import { stat } from "fs";
 
 interface AppContextType {
   darkMode: boolean;
@@ -44,6 +45,19 @@ interface AppContextType {
   setShowProgressModal: React.Dispatch<React.SetStateAction<boolean>>;
   progress: number;
   setProgress: React.Dispatch<React.SetStateAction<number>>;
+  // New states for view mode and floor selection
+  viewMode: 'global' | 'allfloors' | 'floor' | 'device' | 'warnings' | 'issueforms';
+  setViewMode: React.Dispatch<React.SetStateAction<'global' | 'allfloors' | 'floor' | 'device' | 'warnings'| 'issueforms'>>;
+  selectedFloor: string | null;
+  setSelectedFloor: React.Dispatch<React.SetStateAction<string | null>>;
+  selectedDevice: number | null;
+  setSelectedDevice: React.Dispatch<React.SetStateAction<number | null>>;
+  selectedFragId: string | null;
+  setSelectedFragId: React.Dispatch<React.SetStateAction<string | null>>;
+  selectedDeviceName: string | null;
+  setSelectedDeviceName: React.Dispatch<React.SetStateAction<string | null>>;
+  deviceViewMode:'HVAC' | 'CCTV' | 'EAC' | '' ;
+  setDeviceViewMode: React.Dispatch<React.SetStateAction<'HVAC' | 'CCTV' | 'EAC' | ''>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -68,9 +82,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [toast, setToast] = useState<{ message: string; type: string } | null>(null);
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [progress, setProgress] = useState(0);
+  
+  // New states for view mode and floor selection
+  const [viewMode, setViewMode] = useState<'global' | 'allfloors' | 'floor' | 'device' | 'warnings' | 'issueforms'>('global');
+  const [deviceViewMode, setDeviceViewMode] = useState<'HVAC' | 'CCTV' | 'EAC' | ''>('');
+  const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
 
+  const [selectedDevice, setSelectedDevice] = useState<number | null>(null);
+
+  const [selectedFragId, setSelectedFragId] = useState<string | null>(null);
+  const [selectedDeviceName, setSelectedDeviceName] = useState<string | null>(null);
   const { data: session, status } = useSession(); // Get session and status
-
+  
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -109,7 +132,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       downloadProgress, setDownloadProgress, downloadStatus, setDownloadStatus, showDownloadProgress, setShowDownloadProgress,
       showLoginModal, setShowLoginModal, showRegisterModal, setShowRegisterModal, toast, setToast,
       isLoadingUser, // Add isLoadingUser to context value
-      showProgressModal, setShowProgressModal, progress, setProgress
+      showProgressModal, setShowProgressModal, progress, setProgress,
+      viewMode, setViewMode, deviceViewMode, setDeviceViewMode, selectedFloor,setSelectedFloor, selectedDevice, setSelectedDevice, selectedFragId, setSelectedFragId, selectedDeviceName, setSelectedDeviceName // Add new states to context value
     }}>
       {children}
     </AppContext.Provider>

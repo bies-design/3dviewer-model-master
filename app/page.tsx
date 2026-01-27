@@ -35,7 +35,7 @@ export default function Home() {
 
   return (
     <div
-      className={`h-screen flex flex-col ${
+      className={`relative h-screen flex flex-col bg-cover bg-no-repeat bg-center ${
         darkMode ? "bg-custom-zinc-900 bg-main-gradient text-white" : "bg-white text-gray-800"
       }`}
     >

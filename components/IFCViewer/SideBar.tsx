@@ -2,7 +2,7 @@
 
 import React, { useState, useContext } from "react";
 import { Tooltip } from "@heroui/react";
-import { Upload, Camera, Search, MessageSquare, AlertTriangle, HelpCircle, Folder, Bot, Layers, Building2, Home, LayoutList, Sun, Moon, LogIn, LogOut, Users, Settings, BrickWall } from "lucide-react";
+import { Upload, Camera, Search, MessageSquare, AlertTriangle, HelpCircle, Folder, Bot, Layers, Building2, Home, LayoutList, Sun, Moon, LogIn, LogOut, Users, Settings, BrickWall, Globe, Building } from "lucide-react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { useAppContext } from "@/contexts/AppContext";
@@ -14,8 +14,7 @@ interface SideBarProps {
   children: React.ReactNode;
   explodeButton?: React.ReactNode;
   themeSwitcher: React.ReactNode;
-  onToggle: (isOpen: boolean) => void;
-  onToggleDescription: () => void;
+  onToggle: (isOpen: boolean) => void;onToggleDescription: () => void;
   isDescriptionOpen: boolean;
   onToggleUserManagementPanel: () => void;
   activeTab: string | null;
@@ -25,7 +24,7 @@ interface SideBarProps {
 
 const SideBar: React.FC<SideBarProps> = ({ darkMode, children, themeSwitcher, explodeButton, onToggle, onToggleDescription, isDescriptionOpen, onToggleUserManagementPanel, activeTab, setActiveTab, isOpen }) => {
   const { t } = useTranslation();
-  const { isLoggedIn, user } = useAppContext();
+  const { isLoggedIn, user, viewMode, setViewMode } = useAppContext();
   const [showUserPanel, setShowUserPanel] = useState(false);
 
   const allTabs = React.Children.toArray(children) as React.ReactElement<{name: string}>[];
@@ -34,8 +33,7 @@ const SideBar: React.FC<SideBarProps> = ({ darkMode, children, themeSwitcher, ex
 
   const handleTabClick = (name: string) => {
     if (name === "UserManagement") {
-      onToggleUserManagementPanel();
-      setActiveTab(null);
+      onToggleUserManagementPanel();setActiveTab(null);
       onToggle(false);
       return;
     }
@@ -47,6 +45,15 @@ const SideBar: React.FC<SideBarProps> = ({ darkMode, children, themeSwitcher, ex
       setActiveTab(name);
       onToggle(true);
     }
+  };
+
+  const handleModeChange = (mode: 'global' | 'floor') => {
+    console.log('🔄 模式切換:', mode);
+    console.log('📊 當前 viewMode:', viewMode);
+    setViewMode(mode);
+    console.log('✅ setViewMode 已調用');
+    setActiveTab(null);
+    onToggle(false);
   };
 
   const getIcon = (name: string) => {
@@ -93,6 +100,35 @@ const SideBar: React.FC<SideBarProps> = ({ darkMode, children, themeSwitcher, ex
           <div className="p-2 mt-2 mb-2 w-full flex justify-center">
             <Image src="/Frame1.svg" alt="Logo" width={48} height={20} className={darkMode ? "brightness-0 invert" : ""} />
           </div>
+
+          {/* 全局/單層模式切換 */}
+          <div className="flex flex-col gap-1 mb-4 border-b border-gray-600 pb-4">
+            <Tooltip content={t("global_mode") || "全局模式"} placement="right">
+              <button
+                onClick={() => handleModeChange('global')}
+                className={`p-2 rounded-xl cursor-pointer transition-colors ${
+                  viewMode === 'global'
+                    ? darkMode ? "bg-gray-700" : "bg-indigo-600"
+                    : darkMode ? "hover:bg-gray-700" : "hover:bg-indigo-500"
+                }`}
+              >
+                <Globe size={24} />
+              </button>
+            </Tooltip>
+            <Tooltip content={t("floor_mode") || "單層模式"} placement="right">
+              <button
+                onClick={() => handleModeChange('floor')}
+                className={`p-2 rounded-xl cursor-pointer transition-colors ${
+                  viewMode === 'floor'
+                    ? darkMode ? "bg-gray-700" : "bg-indigo-600"
+                    : darkMode ? "hover:bg-gray-700" : "hover:bg-indigo-500"
+                }`}
+              >
+                <Building size={24} />
+              </button>
+            </Tooltip>
+          </div>
+
           {tabs.map((child) => (
             child.props.name && (
               <Tooltip key={child.props.name} content={t(child.props.name.toLowerCase())} placement="right">
@@ -104,8 +140,7 @@ const SideBar: React.FC<SideBarProps> = ({ darkMode, children, themeSwitcher, ex
                 </button>
               </Tooltip>
             )
-          ))}
-          {user?.role === 'admin' && (
+          ))}{user?.role === 'admin' && (
             <Tooltip key="UserManagement" content={t("user_management")} placement="right">
               <button
                 onClick={() => handleTabClick("UserManagement")}
@@ -152,7 +187,7 @@ const SideBar: React.FC<SideBarProps> = ({ darkMode, children, themeSwitcher, ex
               {user?.avatar ? (
                 <Image src={user.avatar} alt="User Avatar" width={48} height={48} className="rounded-full" />
               ) : (
-                <Avatar isBordered color="danger" src="" />
+                <Avatar isBordered src="" />
               )}
             </button>
           </Tooltip>
@@ -165,8 +200,7 @@ const SideBar: React.FC<SideBarProps> = ({ darkMode, children, themeSwitcher, ex
         className={`transition-all duration-300 ${darkMode ? "bg-gray-800 border-r border-gray-700" : "bg-zinc-200 border-r border-gray-300"} ${
           isOpen ? "w-80" : "w-0"
         } flex flex-col`}
-      >
-        <div className="flex-grow overflow-y-auto p-2">
+      ><div className="flex-grow overflow-y-auto p-2">
           {isOpen && allTabs.find((child) => child.props.name === activeTab)}
         </div>
       </div>
