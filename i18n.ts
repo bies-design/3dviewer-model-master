@@ -26,7 +26,7 @@ i18n
     },
     backend: {
       loadPath: isServer 
-        ? 'http://localhost:3000/locales/{{lng}}/{{ns}}.json' 
+        ? 'http://127.0.0.1:3000/locales/{{lng}}/{{ns}}.json' 
         : '/locales/{{lng}}/{{ns}}.json',
     },
   });

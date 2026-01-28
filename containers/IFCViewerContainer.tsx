@@ -201,6 +201,7 @@ export default function IFCViewerContainer() {
   const restListener = useRef<(() => Promise<void>) | null>(null);
   const [hasAutoLoadedModels, setHasAutoLoadedModels] = useState(false); // New state to track auto-loading
   const [isViewerReady, setIsViewerReady] = useState(false);
+  const [isCameraLoading, setIsCameraLoading] = useState(false);
 
   const [showR2HistoryPanel, setShowR2HistoryPanel] = useState(false); // New state for R2 history panel
   const [showPreviewModal, setShowPreviewModal] = useState(false); // New state for PreviewModal
@@ -2416,6 +2417,7 @@ const handleIssueForms = async() => {
     setToast({ message: "無法讀取設備詳細資料", type: "error" });
   }
 }
+
 const outlineAllCamera = async() => {
   if (!components || !fragmentsRef.current) return;
 
@@ -2503,7 +2505,7 @@ const outlineAllCamera = async() => {
   }catch (error) {
       console.error("Failed to fetch cameras:", error);
   }
-}
+};
 
 const handleLocateElementByName = useCallback(async (elementName: string) => {
     if (!components || !fragmentsRef.current) return;
@@ -3218,22 +3220,25 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   {/* cctv按鈕 */}
                   <Tooltip content="監控模式 (CCTV)" placement="bottom">
                     <button
-                      onClick={() => {
+                      disabled={isCameraLoading}
+                      onClick={async() => {
                         if(deviceViewMode === 'CCTV'){
                           handleSwitchDeviceViewMode('');
                           outlinerRef.current?.dispose();
                           markerRef.current?.dispose();
                         }else{
+                          setIsCameraLoading(true);
                           handleSwitchDeviceViewMode('CCTV');
-                          outlineAllCamera();
+                          await outlineAllCamera();
+                          setIsCameraLoading(false);
                         }
                         // setIsMonitorOpen(true);
-                        
                       }}
-                      className={`px-9  py-1 transition-all duration-200 border-r-1 border-[#2EC2EA] ${
+                      className={`${isCameraLoading ? "opacity-50 cursor-wait":`
+                        px-9 py-1 transition-all duration-200 border-r-1 border-[#2EC2EA] ${
                         deviceViewMode === 'CCTV'
                           ? "bg-[#2EC2EA] text-white scale-110"
-                          : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                          : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"}`
                       }`}
                     >
                       <Cctv size={20} className=""/>
