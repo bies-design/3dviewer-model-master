@@ -58,6 +58,12 @@ interface AppContextType {
   setSelectedDeviceName: React.Dispatch<React.SetStateAction<string | null>>;
   deviceViewMode:'HVAC' | 'CCTV' | 'EAC' | '' ;
   setDeviceViewMode: React.Dispatch<React.SetStateAction<'HVAC' | 'CCTV' | 'EAC' | ''>>;
+  isHVACOn: boolean;
+  setIsHVACOn:  React.Dispatch<React.SetStateAction<boolean>>;
+  isCCTVOn: boolean;
+  setIsCCTVOn:  React.Dispatch<React.SetStateAction<boolean>>;
+  isEACOn: boolean;
+  setIsEACOn:  React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -92,8 +98,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const [selectedFragId, setSelectedFragId] = useState<string | null>(null);
   const [selectedDeviceName, setSelectedDeviceName] = useState<string | null>(null);
+
+  const [isHVACOn, setIsHVACOn] = useState<boolean>(false);
+  const [isCCTVOn, setIsCCTVOn] = useState<boolean>(false);
+  const [isEACOn, setIsEACOn] = useState<boolean>(false);
+
   const { data: session, status } = useSession(); // Get session and status
-  
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -133,7 +144,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       showLoginModal, setShowLoginModal, showRegisterModal, setShowRegisterModal, toast, setToast,
       isLoadingUser, // Add isLoadingUser to context value
       showProgressModal, setShowProgressModal, progress, setProgress,
-      viewMode, setViewMode, deviceViewMode, setDeviceViewMode, selectedFloor,setSelectedFloor, selectedDevice, setSelectedDevice, selectedFragId, setSelectedFragId, selectedDeviceName, setSelectedDeviceName // Add new states to context value
+      viewMode, setViewMode, deviceViewMode, setDeviceViewMode, selectedFloor,setSelectedFloor, selectedDevice, setSelectedDevice, selectedFragId, setSelectedFragId, selectedDeviceName, setSelectedDeviceName,
+      isHVACOn, setIsHVACOn, isCCTVOn, setIsCCTVOn, isEACOn, setIsEACOn// Add new states to context value
     }}>
       {children}
     </AppContext.Provider>

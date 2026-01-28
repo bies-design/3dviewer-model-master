@@ -10,12 +10,10 @@ import { useAppContext } from "@/contexts/AppContext";
 
 interface TopsideDataPanelProps {
   darkMode: boolean;
-  isSidebarVisible: boolean;
-  // 使用 SetStateAction 類型，這樣它能同時接受 boolean 或 (prev => !prev) 的寫法
-  setIsSidebarVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  onFocus: () => void;
 }
 {/*  */}
-const TopsideDataPanel: React.FC<TopsideDataPanelProps> = ({ darkMode, isSidebarVisible,setIsSidebarVisible }) => {
+const TopsideDataPanel: React.FC<TopsideDataPanelProps> = ({ darkMode, onFocus}) => {
   const {viewMode} = useAppContext(); 
   const [width, setWidth] = useState(1920);
 

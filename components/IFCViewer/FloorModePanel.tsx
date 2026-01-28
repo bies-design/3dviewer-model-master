@@ -12,6 +12,7 @@ interface FloorModePanelProps {
     components: OBC.Components;
     darkMode: boolean;
     onFocus: () => void;
+    handleSwitchViewMode: (mode: "global" | "allfloors" | "floor" | "device" | "warnings" | "issueforms") => Promise<void>;
     loadedModelIds: string[];
     cameraRef: React.MutableRefObject<OBC.OrthoPerspectiveCamera | null>;
     fragmentsRef: React.RefObject<OBC.FragmentsManager | null>;
@@ -38,6 +39,7 @@ const FloorModePanel: React.FC<FloorModePanelProps> = ({
     components,
     darkMode,
     loadedModelIds,
+    handleSwitchViewMode,
     onFocus,
     cameraRef,
     fragmentsRef,
@@ -56,6 +58,8 @@ const [debouncedSearch, setDebouncedSearch] = useState("");
 const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 // 用來避免重複觸發的 Ref
 const prevSelectedFloorRef = useRef<string | null | undefined>(undefined);
+
+const lastViewModeRef = useRef<string>(viewMode)
 
 const viewModeRef = useRef(viewMode);// for usecallback用
 // 使用 useEffect 隨時同步最新值到 Ref
@@ -105,9 +109,18 @@ useEffect(() => {
 // --- 3. 核心功能：根據樓層載入設備 (獨立函式) ---
 // --- 3. 核心功能：根據樓層載入設備 (篩選 Name 不為空) ---
 const fetchAndIsolateFloor = useCallback(async (floor: string | null) => {
+    
+    //防止過度呼叫
+    if(isLoading) {
+        console.log("過度頻繁呼叫 所以我擋住了");
+        return;
+    }
+
+    prevSelectedFloorRef.current = floor;
+    lastViewModeRef.current = 'floor';
+
     const hider = components.get(OBC.Hider);
     const highlighter = components.get(OBCF.Highlighter);
-
     setIsLoading(true);
 
     try {
@@ -167,10 +180,10 @@ const fetchAndIsolateFloor = useCallback(async (floor: string | null) => {
             
             setFilteredDevices(foundItems);
             
+            console.log("執行一次樓層隔離邏輯");
             // // 確保渲染完成後再對焦
             // await cameraRef.current?.fitToItems(finalResult);
             // console.log("第一個focus")
-        
         } 
         else {
             await hider.set(true); 
@@ -182,32 +195,31 @@ const fetchAndIsolateFloor = useCallback(async (floor: string | null) => {
     } finally {
         setIsLoading(false);
     }
-}, [components, loadedModelIds, onFocus, viewMode]);
+}, [components, loadedModelIds, viewMode, isLoading]);
 
-// --- ★★★ 關鍵修正：同時監聽樓層與模式變化 ★★★ ---
+// 只有在以下兩種情況才執行 3D 隔離與資料抓取：
+// 1. 樓層真正改變時 (手動下拉選單)
+// 2. 當模式是 'floor' 且沒有選中設備時 (表示從 device 模式退回)
 useEffect(() => {
-    // // 邏輯 1：如果樓層真的變了
-    // if (selectedFloor !== prevSelectedFloorRef.current) {
-    //     fetchAndIsolateFloor(selectedFloor as string | null);
-    //     prevSelectedFloorRef.current = selectedFloor;
-    // } 
-    // 邏輯 2：如果樓層沒變，但模式從 device 切回 floor (表示使用者按了返回)
-    if (viewMode === 'floor' && !selectedDevice) {
-        // 強制執行一次 isolation，把剛剛被隔離的單一設備恢復成整層樓
+    if(selectedFloor !== prevSelectedFloorRef.current){
+        console.log("樓層改變 使用者手動切換樓層",selectedFloor,prevSelectedFloorRef);
+        fetchAndIsolateFloor(selectedFloor as string | null);
+    }else if(viewMode === 'floor' && !selectedDevice && lastViewModeRef.current === 'device'){
+        console.log("從設備模式切換floor模式 重新渲染樓層",);
         fetchAndIsolateFloor(selectedFloor as string | null);
     }
+    lastViewModeRef.current = viewMode;
 }, [selectedFloor, viewMode, selectedDevice, fetchAndIsolateFloor]);
 
-// Debounce 邏輯
+// searchBar Debounce 
 useEffect(() => {
     const handler = setTimeout(() => {
         setDebouncedSearch(searchText);
-    }, 300); // 延遲 300ms
+    }, 300); //delay 300 ms
 
     return () => clearTimeout(handler);
 }, [searchText]);
 
-// --- 4. 處理下拉選單變更 ---
 // 現在這裡只需要單純更新 Context，剩下的交給上面的 useEffect
 const onSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
@@ -266,8 +278,7 @@ const handleDeviceClick = async (device: TResultItem) => {
         console.log("選中",device.fragmentId);
         console.log("選中",device.name);
         // 2. 狀態邏輯：切換到 device 模式
-        if (setViewMode) setViewMode('device');
-
+        if(handleSwitchViewMode) await handleSwitchViewMode('device');
         
         console.log("切換至設備模式:", device);
         await cameraRef.current?.fitToItems(selection); 
@@ -283,12 +294,6 @@ const floorHighlightHandler = useCallback(async (selection: OBC.ModelIdMap) => {
     console.log("現在的viewmode是",viewModeRef.current);
     if(viewModeRef.current === 'device') return;
 
-    const outliner = components.get(OBCF.Outliner);
-    const marker = components.get(OBCF.Marker);
-
-    outliner.clean();
-    marker.dispose();
-
     // 若上面marker.dispose()沒有刪好 這段強制清除所有幽靈標記
     const existingMarkers = document.querySelectorAll('.bim-marker-label');
     existingMarkers.forEach((el) => {
@@ -299,8 +304,6 @@ const floorHighlightHandler = useCallback(async (selection: OBC.ModelIdMap) => {
     if (!Object.keys(selection).length) return;
         
     console.log("Floor Mode 專屬點擊邏輯:", selection);
-  // 這裡你可以寫 Floor 模式下點擊物件要觸發的事，例如更新右側面板
-  // 或是什麼都不做，只讓它單純高亮（Highlighter 預設會處理高亮）
 
     try{
         await hider.isolate(selection);
@@ -334,9 +337,12 @@ const floorHighlightHandler = useCallback(async (selection: OBC.ModelIdMap) => {
         console.log("選中",modelId[0]);
         
 
+        console.log("清理畫面上所有標記");
+
+
         if (setSelectedDevice) setSelectedDevice(expressId);
         if (setSelectedFragId) setSelectedFragId(modelId[0]);
-        if (setViewMode) setViewMode('device');
+        if (handleSwitchViewMode) handleSwitchViewMode('device');
         console.log("切換至設備模式:", modelId[0]);
 
         await cameraRef.current?.fitToItems(selection);
@@ -365,7 +371,7 @@ useEffect(() => {
     }
 }, [debouncedSearch, groupedDevices]);
 
-// --- 新增：當搜尋結果改變時，同步過濾 3D 畫面 ---
+// --- 當搜尋結果改變時，同步過濾 3D 畫面 ---
 useEffect(() => {
     const syncVisualSearch = async () => {
         const hider = components.get(OBC.Hider);
@@ -385,7 +391,6 @@ useEffect(() => {
         } 
         // 2. 如果搜尋文字被清空 -> 恢復顯示目前選中的樓層 (或是全部)
         else if (!debouncedSearch) {
-            // 這裡簡單呼叫 fetchAndIsolateFloor 讓它負責重繪樓層
             // 注意：要確保這不會造成無窮迴圈，或者手動還原 hider 狀態
             if (filteredDevices.length > 0) {
                  // 還原成該樓層所有物件

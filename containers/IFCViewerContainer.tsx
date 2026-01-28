@@ -27,7 +27,7 @@ import SideBarTab from "@/components/IFCViewer/SideBarTab";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import Link from "next/link";
-import { LogIn, LogOut, User as UserIcon, Pause, Play, Download, Menu, Undo2, Layers, Globe, Layers2, TriangleAlert, ChevronRight, BookAlert, Box, AirVent, Cctv, DoorClosedLocked } from "lucide-react";
+import { LogIn, LogOut, User as UserIcon, Pause, Play, Download, Menu, Undo2, Layers, Globe, Layers2, TriangleAlert, ChevronRight, BookAlert, Box, AirVent, Cctv, DoorClosedLocked, Focus } from "lucide-react";
 import { Tooltip,Avatar } from "@heroui/react";
 import DescriptionPanel from "@/components/IFCViewer/DescriptionPanel";
 import LoginModal from "@/components/LoginModal";
@@ -138,9 +138,10 @@ export default function IFCViewerContainer() {
     isUploadPaused, setIsUploadPaused,
     downloadProgress, setDownloadProgress, downloadStatus, setDownloadStatus, showDownloadProgress, setShowDownloadProgress,
     showProgressModal, setShowProgressModal, progress, setProgress, setToast,
-    viewMode, setViewMode, deviceViewMode, setDeviceViewMode, selectedFloor, setSelectedFloor, selectedDevice, setSelectedDevice, selectedFragId, setSelectedFragId,
-    selectedDeviceName, setSelectedDeviceName
+    viewMode, setViewMode, selectedFloor, setSelectedFloor, selectedDevice, setSelectedDevice, selectedFragId, setSelectedFragId,
+    selectedDeviceName, setSelectedDeviceName, isHVACOn, setIsHVACOn, isCCTVOn, setIsCCTVOn, isEACOn, setIsEACOn
   } = useAppContext();
+
   const workerRef = useRef<Worker | null>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const componentsRef = useRef<OBC.Components | null>(null);
@@ -222,8 +223,6 @@ export default function IFCViewerContainer() {
   });
   const [showVisitors, setShowVisitors] = useState(true);
   const [intervalMs, setIntervalMs] = useState(5000);
-
-  const [cameras, setCameras] = useState<any[]>([]);
 
   const [showWarningModal, setShowWarningModal] = useState(false);
 
@@ -1838,10 +1837,15 @@ useEffect(() => {
       console.log("清空選中FragId",selectedFragId);
       console.log("清空選中Floor",selectedFloor);
       console.log("清空選中DeviceName",selectedDeviceName);
+
+      // 按鈕狀態管理
+      setIsHVACOn(false);
+      setIsCCTVOn(false);
+      setIsEACOn(false);
     }
     if (mode === 'allfloors') {
       await onShow();
-      await onFocus();
+
       if(selectedDevice) setSelectedDevice(null);
       if(selectedFragId) setSelectedFragId(null);
       if(selectedFloor) setSelectedFloor(null);
@@ -1852,6 +1856,11 @@ useEffect(() => {
       console.log("清空選中FragId",selectedFragId);
       console.log("清空選中Floor",selectedFloor);
       console.log("清空選中DeviceName",selectedDeviceName);
+
+      // 按鈕狀態管理
+      setIsHVACOn(false);
+      setIsCCTVOn(false);
+      setIsEACOn(false);
     }
     if (mode === 'floor') {
       //恢復單層
@@ -1859,18 +1868,24 @@ useEffect(() => {
       if(selectedDevice) setSelectedDevice(null);
       if(selectedFragId) setSelectedFragId(null);
       if(selectedDeviceName) setSelectedDeviceName(null);
-      // 3. 清除選中的樓層狀態 (為了資料一致性)
-      // 使用 null 比 "" 更安全，視你的 Context 定義而定
       console.log("清空選中expressId",selectedDevice);
       console.log("清空選中FragId",selectedFragId);
       console.log("清空選中DeviceName",selectedDeviceName);
+
+      // 按鈕狀態管理
+      setIsHVACOn(false);
+      setIsCCTVOn(false);
+      setIsEACOn(false);
+    }
+    if(mode === 'device') {
+      outlinerRef.current?.clean();
+      markerRef.current?.dispose();
+      // 按鈕狀態管理
+      setIsHVACOn(false);
+      setIsCCTVOn(false);
+      setIsEACOn(false);
     }
   };
-
-  const handleSwitchDeviceViewMode = (mode: 'HVAC' | 'CCTV' | 'EAC' | '') => {
-    setDeviceViewMode(mode);
-    console.log('device Mode切換成',mode);
-  }
 
   const originalColors  = useRef(new Map<
     FRAGS.BIMMaterial, 
@@ -1930,7 +1945,7 @@ useEffect(() => {
       setIsGhost(true);
     }
   };
- 
+
   const handleToggleShadowSceneAndOpenSettings = () => {
     toggleShadowScene();
     setIsSidebarOpen(true);
@@ -2423,19 +2438,21 @@ const outlineAllCamera = async() => {
 
   try {
     const response = await fetch("/api/cameras");
+    let latestCameras = []; 
+
     if (response.ok) {
         const data = await response.json();
-        setCameras(data);
+        latestCameras = data;
     }
 
-    const validCameras = cameras.filter((cam: any) => cam.elementName && cam.elementName.trim() !== "");
+    const validCameras = latestCameras.filter((cam: any) => cam.elementName && cam.elementName.trim() !== "");
 
     if (validCameras.length === 0) {
       setToast({ message: "目前沒有已關聯 BIM 元件的監視器", type: "warning" });
       return;
     }
 
-    const cameraNames = validCameras.map(cam => cam.elementName);
+    const cameraNames = validCameras.map((cam: any )=> cam.elementName);
 
     console.log("目前有的camera",cameraNames);
 
@@ -3113,7 +3130,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
           {!isUserManagementPanelOpen && !showDescriptionPanel && !showR2HistoryPanel && (
             <>
               {/* 最頂部數據欄 (保持不變) */}
-              <TopsideDataPanel darkMode={darkMode} isSidebarVisible={isSidebarVisible} setIsSidebarVisible={setIsSidebarVisible} />
+              <TopsideDataPanel darkMode={darkMode} onFocus={onFocus} />
 
               {/* 模式切換側邊欄 (位於左側最邊緣) */}
               {/* 這裡佔據 left-0 到 left-20 之間的空間，作為模式切換器 */}
@@ -3132,8 +3149,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   >
                     <Globe size={30} className="transform -skew-x-[40deg]"/>
                   </button>
-                </Tooltip>
-                
+                </Tooltip> 
                 {/* AllFloors 按鈕 */}
                 <Tooltip content="分層模式 (All Floors)" placement="bottom">
                   <button
@@ -3180,8 +3196,9 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
               <div className={`${(viewMode === 'floor' || viewMode === 'device')? "absolute ":"hidden"} -translate-x-1/2 left-1/2 top-55/1000 z-30 gap-0 flex ${
                 darkMode ? "bg-transparent " : "bg-white/80 border-gray-200"}`}> 
                   {/* Device按鈕 */}
-                  <Tooltip content="設備模式 (Device)" placement="bottom">
+                  <Tooltip content={selectedDevice ? `設備模式 (Device)` : `請先選擇一個設備`} placement="bottom">
                     <button
+                      disabled={ selectedDevice === null } 
                       onClick={() => {
                         if(viewMode === 'device') {
                           handleSwitchViewMode('floor');
@@ -3199,17 +3216,18 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                     </button>
                   </Tooltip>
                   {/* hvac按鈕 */}
-                  <Tooltip content="暖通空調模式 (HVAC)" placement="bottom">
+                  <Tooltip content={selectedFloor ? "顯示暖通空調 (HVAC)" : `請先選擇一個樓層`} placement="bottom">
                     <button
+                      disabled={(viewMode === 'device' || !selectedFloor )}
                       onClick={() => {
-                        if(deviceViewMode === 'HVAC'){
-                          handleSwitchDeviceViewMode('');
+                        if(isHVACOn){
+                          setIsHVACOn(false);
                         }else{
-                          handleSwitchDeviceViewMode('HVAC');
+                          setIsHVACOn(true);
                         }
                       }}
                       className={`px-9  py-1 transition-all duration-200 border-r-1 border-[#2EC2EA] ${
-                        deviceViewMode === 'HVAC'
+                          isHVACOn
                           ? "bg-[#2EC2EA] text-white scale-110"
                           : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
                       }`}
@@ -3218,25 +3236,25 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                     </button>
                   </Tooltip>
                   {/* cctv按鈕 */}
-                  <Tooltip content="監控模式 (CCTV)" placement="bottom">
+                  <Tooltip content={selectedFloor ? "顯示監控 (CCTV)" : `請先選擇一個樓層`} placement="bottom">
                     <button
-                      disabled={isCameraLoading}
+                      disabled={(isCameraLoading || viewMode === "device" || !selectedFloor)}
                       onClick={async() => {
-                        if(deviceViewMode === 'CCTV'){
-                          handleSwitchDeviceViewMode('');
+                        if(isCCTVOn){
+                          setIsCCTVOn(false);
                           outlinerRef.current?.dispose();
                           markerRef.current?.dispose();
                         }else{
                           setIsCameraLoading(true);
-                          handleSwitchDeviceViewMode('CCTV');
+                          setIsCCTVOn(true);
                           await outlineAllCamera();
                           setIsCameraLoading(false);
                         }
                         // setIsMonitorOpen(true);
                       }}
-                      className={`${isCameraLoading ? "opacity-50 cursor-wait":`
+                      className={`${isCameraLoading ? "opacity-50 cursor-wait px-9 py-1":`
                         px-9 py-1 transition-all duration-200 border-r-1 border-[#2EC2EA] ${
-                        deviceViewMode === 'CCTV'
+                        isCCTVOn
                           ? "bg-[#2EC2EA] text-white scale-110"
                           : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"}`
                       }`}
@@ -3245,17 +3263,18 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                     </button>
                   </Tooltip>
                   {/* 門禁按鈕 */}
-                  <Tooltip content="門禁系統 (EAC)" placement="bottom">
+                  <Tooltip content={selectedFloor ? "顯示門禁 (EAC)" : "請先選擇一個樓層"} placement="bottom">
                     <button
+                      disabled={(viewMode === 'device' || !selectedFloor)}
                       onClick={() => {
-                        if(deviceViewMode === 'EAC'){
-                          handleSwitchDeviceViewMode('');
+                        if(isEACOn){
+                          setIsEACOn(false);
                         }else{
-                          handleSwitchDeviceViewMode('EAC');
+                          setIsEACOn(true);
                         }
                       }}
                       className={`px-9 py-1 transition-all duration-200  ${
-                        deviceViewMode === 'EAC'
+                        isEACOn
                           ? "bg-[#2EC2EA] text-white scale-110"
                           : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
                       }`}
@@ -3279,7 +3298,19 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   </button>
                 </Tooltip> */}
               </div>
-              
+              {/* 標題右側按鈕 */}
+              <div className={`${isSidebarVisible ? "w-fit h-fit" : "hidden" }  transform -skew-x-[40deg] absolute -translate-x-1/2 left-[calc(50%+260px)] top-3/100 z-30 gap-1 flex backdrop-blur-md ${
+                darkMode ? "bg-transparent backdrop-blur-2xl border-gray-700" : "bg-white/80 border-gray-200"
+              }`}>
+                <Tooltip content="聚焦(Focus)" placement="bottom">
+                  <button
+                    onClick={() => onFocus()}
+                    className={`p-3 transition-all duration-200 "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"`}
+                  >
+                    <Focus size={30} className="transform -skew-x-[-40deg]"/>
+                  </button>
+                </Tooltip>
+              </div>
               {/* === Global 模式面板 === */}
               {viewMode === 'global' && (
                 <>
@@ -3306,6 +3337,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                       <FloorModePanel
                         components={components}
                         darkMode={darkMode}
+                        handleSwitchViewMode={handleSwitchViewMode}
                         onFocus={onFocus}
                         loadedModelIds={Array.from(fragmentsRef.current?.list.keys() || [])}
                         cameraRef={cameraRef}
