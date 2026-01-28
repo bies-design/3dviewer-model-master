@@ -686,8 +686,8 @@ useEffect(() => {
       scene.three.background = null;
 
       // axes x y z軸線
-      const axesHelper = new THREE.AxesHelper(500); // 參數 5 代表軸線長度
-      world.scene.three.add(axesHelper);
+      // const axesHelper = new THREE.AxesHelper(500); // 參數 5 代表軸線長度
+      // world.scene.three.add(axesHelper);
 
       const hdriLoader = new RGBELoader();
       hdriLoader.load(
@@ -1990,8 +1990,12 @@ useEffect(() => {
     }
     if (mode === 'allfloors') {
 
+      outlinerRef.current?.clean();
+      markerRef.current?.dispose();
+      
       await onShow();
       await onFocus('isometric');
+      
       if(selectedDevice) setSelectedDevice(null);
       if(selectedFragId) setSelectedFragId(null);
       if(selectedFloor) setSelectedFloor(null);
@@ -2598,7 +2602,7 @@ const outlineAllCamera = async() => {
       return;
     }
 
-    const cameraNames = validCameras.map((cam: any )=> cam.elementName);
+    const cameraNames = validCameras.map((cam: any ) => cam.elementName);
 
     console.log("目前有的camera",cameraNames);
 
@@ -2928,7 +2932,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
               {/* 左側 */}
               <div className={viewMode === 'device' ? " w-1/2 h-full flex flex-col gap-2":""}>
                 {/* 左一 */}
-                <div className={viewMode === 'device' ? "w-full h-1/3 flex flex-col gap-2":"hidden"}>
+                <div className={`w-full h-1/3 flex flex-col gap-2 ${viewMode === 'device' ? "":"hidden"}`}>
                   <div className="hud-panel w-full h-full pl-4 flex justify-between items-center ">
                     <p className="font-bold text-white text-lg tracking-wider">
                       {selectedDeviceName ? `${selectedDeviceName} 設備基本資訊` : "請選擇一個設備"} </p>
@@ -3020,7 +3024,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                 </div>
               </div>
               {/* 右側 */}
-              <div className={viewMode === 'device' ? " w-1/2 h-full flex flex-col gap-2":"hidden"}>
+              <div className={` w-1/2 h-full flex flex-col gap-2 ${viewMode === 'device' ? "":"hidden"}`}>
                 {/* 右一 :能耗狀況 & 運行狀況 */}
                 <div className="w-full h-330/1000 flex gap-2">
                   {/* 能耗狀況 (電池圖) */}
@@ -3047,26 +3051,27 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                 <div className="hud-panel w-full h-338/1000 p-4 flex flex-col">
                   <p className="text-white font-semibold mb-2">耗電量 <span className="text-xs text-white">(kWh)</span></p>
                   <div className="flex-1 w-full min-h-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={powerData}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E0E0E0" />
-                        <XAxis dataKey="time" stroke="white" fontSize={10} tickLine={false} axisLine={false} />
-                        <YAxis stroke="white" fontSize={10} tickLine={false} axisLine={false} />
-                        <RechartsTooltip 
-                            contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid #444', borderRadius: '4px' }}
-                            itemStyle={{ color: '#fff' }}
-                        />
-                        <Bar dataKey="val" fill="url(#colorGradient)" radius={[2, 2, 0, 0]}>
-                      
-                        </Bar>
-                        <defs>
-                            <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#2BC3EC" stopOpacity={0.8}/>
-                              <stop offset="95%" stopColor="#2BC3EC" stopOpacity={0.2}/>
-                            </linearGradient>
-                        </defs>
-                      </BarChart>
-                    </ResponsiveContainer>
+                    {viewMode === 'device' && 
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={powerData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E0E0E0" />
+                          <XAxis dataKey="time" stroke="white" fontSize={10} tickLine={false} axisLine={false} />
+                          <YAxis stroke="white" fontSize={10} tickLine={false} axisLine={false} />
+                          <RechartsTooltip 
+                              contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid #444', borderRadius: '4px' }}
+                              itemStyle={{ color: '#fff' }}
+                          />
+                          <Bar dataKey="val" fill="url(#colorGradient)" radius={[2, 2, 0, 0]}>
+                        
+                          </Bar>
+                          <defs>
+                              <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#2BC3EC" stopOpacity={0.8}/>
+                                <stop offset="95%" stopColor="#2BC3EC" stopOpacity={0.2}/>
+                              </linearGradient>
+                          </defs>
+                        </BarChart>
+                      </ResponsiveContainer>}
                   </div>
                 </div>
                 {/* 右三：環境溫度 & 溫度 (Line Charts)*/}
@@ -3078,23 +3083,24 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                         <div className="flex items-center gap-1"><span className="w-4 h-2 bg-[#00a8ff]"></span><span className="text-[12px] text-white">環境溫度</span></div>
                     </div>
                     <div className="flex-1 w-full min-h-0">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart 
-                              data={tempData1}
-                               margin={{ top: 10, right: 20, left: -20, bottom: 0 }} // 將 left 設為負值
-                            >
-                                <defs>
-                                    <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#00a8ff" stopOpacity={0.3}/>
-                                    <stop offset="95%" stopColor="#00a8ff" stopOpacity={0}/>
-                                    </linearGradient>
-                                </defs>
-                                <XAxis dataKey="time" stroke="white" fontSize={9} axisLine={false} tickLine={false} />
-                                <YAxis stroke="white" fontSize={9} axisLine={false} tickLine={false} domain={['dataMin - 2', 'dataMax + 2']} />
-                                <RechartsTooltip contentStyle={{ backgroundColor: '#000', border: 'none' }} itemStyle={{fontSize:'12px'}}/>
-                                <Area type="monotone" dataKey="val" stroke="#00a8ff" fillOpacity={1} fill="url(#colorTemp)" strokeWidth={2} />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                        {viewMode === 'device' && 
+                          <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart 
+                                data={tempData1}
+                                margin={{ top: 10, right: 20, left: -20, bottom: 0 }} // 將 left 設為負值
+                              >
+                                  <defs>
+                                      <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
+                                      <stop offset="5%" stopColor="#00a8ff" stopOpacity={0.3}/>
+                                      <stop offset="95%" stopColor="#00a8ff" stopOpacity={0}/>
+                                      </linearGradient>
+                                  </defs>
+                                  <XAxis dataKey="time" stroke="white" fontSize={9} axisLine={false} tickLine={false} />
+                                  <YAxis stroke="white" fontSize={9} axisLine={false} tickLine={false} domain={['dataMin - 2', 'dataMax + 2']} />
+                                  <RechartsTooltip contentStyle={{ backgroundColor: '#000', border: 'none' }} itemStyle={{fontSize:'12px'}}/>
+                                  <Area type="monotone" dataKey="val" stroke="#00a8ff" fillOpacity={1} fill="url(#colorTemp)" strokeWidth={2} />
+                              </AreaChart>
+                          </ResponsiveContainer>}
                     </div>
                   </div>
                   {/* 溫度 (多線) */}
@@ -3113,61 +3119,62 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                         </div>
                     </div>
                     <div className="flex-1 w-full min-h-0">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart 
-                              data={tempData2}
-                              margin={{ top: 10, right: 20, left: -20, bottom: 0 }} // 將 left 設為負值
-                              >
-                              
-                              <defs>
-                          
-                                <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#4ade80" stopOpacity={0.3} />
-                                  <stop offset="95%" stopColor="#4ade80" stopOpacity={0} />
-                                </linearGradient>
-              
-                                <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#eab308" stopOpacity={0.3} />
-                                  <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
-                                </linearGradient>
-                              </defs>
-                              <XAxis 
-                                dataKey="time" 
-                                stroke="white" 
-                                fontSize={9} 
-                                tickLine={false} 
-                                axisLine={false} 
-                              />
-                              <YAxis 
-                                stroke="white" 
-                                fontSize={9} 
-                                tickLine={false} 
-                                axisLine={false} 
-                              />
-                              <RechartsTooltip 
-                                contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: 'none', borderRadius: '4px' }} 
-                                itemStyle={{ fontSize: '12px' }} 
-                              />
+                        {viewMode === 'device' && 
+                          <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart 
+                                data={tempData2}
+                                margin={{ top: 10, right: 20, left: -20, bottom: 0 }} // 將 left 設為負值
+                                >
+                                
+                                <defs>
+                            
+                                  <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#4ade80" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#4ade80" stopOpacity={0} />
+                                  </linearGradient>
+                
+                                  <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#eab308" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
+                                  </linearGradient>
+                                </defs>
+                                <XAxis 
+                                  dataKey="time" 
+                                  stroke="white" 
+                                  fontSize={9} 
+                                  tickLine={false} 
+                                  axisLine={false} 
+                                />
+                                <YAxis 
+                                  stroke="white" 
+                                  fontSize={9} 
+                                  tickLine={false} 
+                                  axisLine={false} 
+                                />
+                                <RechartsTooltip 
+                                  contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: 'none', borderRadius: '4px' }} 
+                                  itemStyle={{ fontSize: '12px' }} 
+                                />
 
-                              <Area
-                                type="monotone"
-                                dataKey="out"
-                                stroke="#4ade80"
-                                strokeWidth={2}
-                                fillOpacity={1}
-                                fill="url(#colorOut)"
-                              />
-      
-                              <Area
-                                type="monotone"
-                                dataKey="in"
-                                stroke="#eab308"
-                                strokeWidth={2}
-                                fillOpacity={1}
-                                fill="url(#colorIn)"
-                              />
-                            </AreaChart>
-                          </ResponsiveContainer>
+                                <Area
+                                  type="monotone"
+                                  dataKey="out"
+                                  stroke="#4ade80"
+                                  strokeWidth={2}
+                                  fillOpacity={1}
+                                  fill="url(#colorOut)"
+                                />
+        
+                                <Area
+                                  type="monotone"
+                                  dataKey="in"
+                                  stroke="#eab308"
+                                  strokeWidth={2}
+                                  fillOpacity={1}
+                                  fill="url(#colorIn)"
+                                />
+                              </AreaChart>
+                            </ResponsiveContainer>}
                     </div>
                   </div>
                 </div>

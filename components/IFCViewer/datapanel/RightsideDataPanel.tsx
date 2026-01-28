@@ -4,8 +4,6 @@ import React from "react";
 import {Card, Tab, Tabs} from "@heroui/react";
 import { ResponsiveContainer, Tooltip, BarChart, CartesianGrid, XAxis, YAxis, AreaChart, Area, Bar} from "recharts";
 
-
-
 interface RightsideDataPanelProps {
   darkMode: boolean;
 }
@@ -37,7 +35,7 @@ const trendData = [
 
 const RightsideDataPanel: React.FC<RightsideDataPanelProps> = ({ darkMode }) => {
   return (
-    <div className="absolute right-4 top-25 bottom-10 w-[20%] h-[85%] z-10 flex flex-col gap-4 pointer-events-none">
+    <div className="absolute right-4 top-25 bottom-10 min-w-[300px] min-h-[600px] w-[20%] h-[85%] z-10 flex flex-col gap-4 pointer-events-none">
       {/*上段: 本月and本年用電 */}
       <div className="relative hud-panel h-[12%] flex gap-2 items-center justify-center">
         <div className="flex flex-col items-center px-4 border-r border-white/10">
@@ -110,7 +108,7 @@ const RightsideDataPanel: React.FC<RightsideDataPanelProps> = ({ darkMode }) => 
             }
           >
             <div className="h-[250px] mt-4">
-              <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={trendData} margin={{top:0,right:0,left:0,bottom:0}}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                   <XAxis dataKey="month" axisLine={true} tickLine={false} tick={{ fontSize: 10, fill: 'rgba(255,255,255)' }} />

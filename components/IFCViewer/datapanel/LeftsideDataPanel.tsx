@@ -26,7 +26,7 @@ const rankingData = [
 
 const LeftsideDataPanel: React.FC<LeftsideDataPanelProps> = ({ darkMode }) => {
   return (
-    <div className="absolute left-4 top-25 bottom-10 w-[20%] h-[85%] z-10 flex flex-col gap-4 pointer-events-none group">      
+    <div className="absolute left-4 top-25 bottom-10 min-w-[300px] min-h-[600px] w-[20%] h-[85%] z-10 flex flex-col gap-4 pointer-events-none group">      
         {/*上段: 即時and本日用電 */}
         <div className="relative hud-panel h-[12%] flex gap-2 items-center justify-center"> 
           

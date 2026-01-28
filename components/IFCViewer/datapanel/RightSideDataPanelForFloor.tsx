@@ -52,7 +52,7 @@ const last30DaysData = [
 
 const RightSideDataPanelForFloor: React.FC<RightSideDataPanelForFloorProps> = ({ floor, darkMode }) => {
   return (
-    <div className="absolute hud-panel right-4 top-25 bottom-10 z-10 flex flex-col gap-4 w-[20%] h-[85%] pointer-events-none">
+    <div className="absolute hud-panel right-4 top-25 bottom-10 z-10 flex flex-col gap-4 min-w-[300px] min-h-[600px] w-[20%] h-[85%] pointer-events-none">
       
       {/* Header */}
       <h3 className="m-3 text-xl font-bold flex items-center gap-2 text-white"> 
@@ -60,8 +60,8 @@ const RightSideDataPanelForFloor: React.FC<RightSideDataPanelForFloorProps> = ({
         {floor ? `樓層 ${floor} 用電資料` : "請選擇一個樓層"}
       </h3>
       
-      <div className={floor ? " w-full h-full" : "hidden" }>
-        <RightInfoPanel/>     
+      <div className={floor ? "w-full h-full" : "w-full h-full hidden"}>
+        {floor && <RightInfoPanel/>}
       </div>
     </div>
   );

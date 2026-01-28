@@ -112,6 +112,8 @@ useEffect(() => {
 // --- 3. 核心功能：根據樓層載入設備 (篩選 Name 不為空) ---
 const fetchAndIsolateFloor = useCallback(async (floor: string | null) => {
     
+    setSelectedDevice(null);
+    setSelectedDeviceName(null);
     //防止過度呼叫
     if(isLoading) {
         console.log("過度頻繁呼叫 所以我擋住了");

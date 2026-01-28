@@ -53,8 +53,7 @@ const last30DaysData = [
 
 const RightSideDataPanelForAllFloor: React.FC<RightSideDataPanelForAllFloorProps> = ({ loadedModelIds, floor, darkMode }) => {
   return (
-    <div className="absolute hud-panel right-4 top-25 bottom-10 z-10 flex flex-col gap-4 w-[20%] h-[85%] pointer-events-none">
-      
+    <div className="absolute hud-panel right-4 top-25 bottom-10 z-10 flex flex-col gap-4 min-w-[350px] min-h-[600px] w-[20%] h-[85%] pointer-events-none">
       <KPIFloorTable loadedModelIds={loadedModelIds}/>
     </div>
   );
