@@ -8,10 +8,12 @@ import * as OBCF from "@thatopen/components-front";
 import { useAppContext } from "@/contexts/AppContext";
 import { Select ,SelectItem} from "@heroui/react";
 
+type FocusMode = 'top-down' | 'isometric' | 'tight-fit';
+
 interface FloorModePanelProps {
     components: OBC.Components;
     darkMode: boolean;
-    onFocus: () => void;
+    onFocus: (mode?: FocusMode) => Promise<void>;
     handleSwitchViewMode: (mode: "global" | "allfloors" | "floor" | "device" | "warnings" | "issueforms") => Promise<void>;
     loadedModelIds: string[];
     cameraRef: React.MutableRefObject<OBC.OrthoPerspectiveCamera | null>;
@@ -181,6 +183,7 @@ const fetchAndIsolateFloor = useCallback(async (floor: string | null) => {
             setFilteredDevices(foundItems);
             
             console.log("執行一次樓層隔離邏輯");
+            onFocus('top-down');
             // // 確保渲染完成後再對焦
             // await cameraRef.current?.fitToItems(finalResult);
             // console.log("第一個focus")
@@ -278,10 +281,10 @@ const handleDeviceClick = async (device: TResultItem) => {
         console.log("選中",device.fragmentId);
         console.log("選中",device.name);
         // 2. 狀態邏輯：切換到 device 模式
-        if(handleSwitchViewMode) await handleSwitchViewMode('device');
+        // if(handleSwitchViewMode) await handleSwitchViewMode('device');
         
         console.log("切換至設備模式:", device);
-        await cameraRef.current?.fitToItems(selection); 
+        onFocus('tight-fit');
         
     }catch(e){
         console.log("選中失敗",e);
@@ -342,7 +345,7 @@ const floorHighlightHandler = useCallback(async (selection: OBC.ModelIdMap) => {
 
         if (setSelectedDevice) setSelectedDevice(expressId);
         if (setSelectedFragId) setSelectedFragId(modelId[0]);
-        if (handleSwitchViewMode) handleSwitchViewMode('device');
+        // if (handleSwitchViewMode) handleSwitchViewMode('device');
         console.log("切換至設備模式:", modelId[0]);
 
         await cameraRef.current?.fitToItems(selection);

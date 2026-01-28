@@ -232,13 +232,16 @@ export default function IFCViewerContainer() {
   const [isMonitorOpen, setIsMonitorOpen] = useState<boolean>(false);
   const [isLinkedCameraPanelOpen,setIsLinkedCameraPanelOpen] = useState<boolean>(false);
   const [linkedCameras, setLinkedCameras] = useState<any[]>();
-
+  
   const { t } = useTranslation();
 
   // ★★★ 新增：用 Ref 追蹤 setViewMode ★★★
   const viewModeRef = useRef(viewMode);
   const setViewModeRef = useRef(setViewMode);
   const setSelectedFloorRef = useRef(setSelectedFloor);
+
+  const globalCenterRef = useRef<THREE.Vector3 | null>(null);
+  const globalBox3Ref = useRef<THREE.Box3 | null>(null);
 
   const ymdhmsDate = dayjs(user?.updatedAt).format('YYYY-MM-DD HH:mm:ss');
   const {data:session, status} = useSession();
@@ -615,14 +618,16 @@ useEffect(() => {
       loadedCount++;
     }
 
-    console.log("✅ 所有模型自動載入完成");
+    console.log("✅ 所有模型自動載入完成，開始計算中心點...");
     
-    // --- [新增] 關閉進度條 ---
     setProgress(100);
-    // 稍微延遲關閉，讓使用者看到 100%
-    setTimeout(() => {
-      setShowProgressModal(false);
+    // 獲取所有模型的中點和Box3
+    setTimeout(async () => {
+      await getAllCenterAndBox3();
     }, 1000);
+
+    setShowProgressModal(false);
+
   };
 
   // 稍微延遲一點點，確保 Viewer DOM 已經完全穩定
@@ -680,6 +685,10 @@ useEffect(() => {
       scene.setup();
       scene.three.background = null;
 
+      // axes x y z軸線
+      const axesHelper = new THREE.AxesHelper(500); // 參數 5 代表軸線長度
+      world.scene.three.add(axesHelper);
+
       const hdriLoader = new RGBELoader();
       hdriLoader.load(
         "https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr",
@@ -695,7 +704,7 @@ useEffect(() => {
 
       const camera = new OBC.OrthoPerspectiveCamera(components);
       world.camera = camera;
-      await camera.controls.setLookAt(3, 3, 3, 0, 0, 0);
+      await camera.controls.setLookAt(100, 100, 100 , 0, 0, 0,false);
       camera.updateAspect();
       cameraRef.current = camera;
 
@@ -738,7 +747,7 @@ useEffect(() => {
 
       await ifcLoader.setup({
         autoSetWasm: false,
-        wasm: { path: "https://unpkg.com/web-ifc@0.0.71/", absolute: true },
+        wasm: { path: "https://unpkg.com/web-ifc@0.0.74/", absolute: true },
       });
 
       const githubUrl = "https://thatopen.github.io/engine_fragment/resources/worker.mjs";
@@ -768,7 +777,9 @@ useEffect(() => {
         world.scene.three.add(model.object);
         await fragments.core.update(true);
         if (worldRef.current?.camera) {
-          worldRef.current.camera.fitToItems();
+          onFocus('isometric');
+          console.log("我聚焦拉");
+
         }
       });
 
@@ -1030,9 +1041,6 @@ useEffect(() => {
                 // const hider = components.get(OBC.Hider);
                 // if (hider) await hider.isolate(finalResult);
 
-                // 自動聚焦到該樓層
-                if(cameraRef.current) await cameraRef.current.fitToItems(finalResult);
-
                 // 更新 Context 讓左側面板連動
                 if (setSelectedFloorRef.current) {
                     setSelectedFloorRef.current(floorName);
@@ -1042,7 +1050,6 @@ useEffect(() => {
                 if (setViewModeRef.current) {
                     console.log("Switching view mode to floor"); // Debug
                     setViewModeRef.current('floor');
-                    
                 }
               }
             }
@@ -1094,10 +1101,7 @@ useEffect(() => {
         setIsViewerReady(false);
       };
     };
-
     init();
-    setViewMode('global');
-
   }, []);
 
   const extractAndSaveElements = async (model: FRAGS.FragmentsModel) => {
@@ -1777,26 +1781,167 @@ useEffect(() => {
     await hider.set(true, selection);
   };
 
-  const onFocus = async () => {
-    if (!cameraRef.current || !highlighterRef.current) return;
-    const selection = highlighterRef.current.selection.select;
+  const getAllCenterAndBox3 = async() => {
+    const boxer = boxerRef.current as OBC.BoundingBoxer;
+    const fragments = fragmentsRef.current as OBC.FragmentsManager;
+    const visibleMap: OBC.ModelIdMap = {};
+    const allPositions: THREE.Vector3[] = [];
 
-    let hasSelection = false;
-    if (selection) {
-      for (const modelId in selection) {
-        if (selection[modelId] instanceof Set && selection[modelId].size > 0) {
-          hasSelection = true;
-          break;
+    boxer.list.clear();
+
+    // 遍歷所有已載入的模型
+    for (const [modelId, model] of fragments.list) {
+          // 1. 獲取該模型所有可見的 expressIds
+          const expressIds = await model.getItemsByVisibility(true);
+
+          if (expressIds.length > 0) {
+              // 2. ★ 修正：不需要內層迴圈！直接一次性獲取這些 ID 的位置
+              // getPositions 本身就是設計來接收 ID 陣列的
+              const positions = await model.getPositions(expressIds);
+              
+              // 3. 將位置加入總列表 (這樣比 push(...spread) 稍微快一點，或者保持原樣也可以)
+              for (let i = 0; i < positions.length; i++) {
+                  allPositions.push(positions[i]);
+              }
+          }
+    }
+    if (allPositions.length === 0) return;
+
+    const myManualBox3 = new THREE.Box3().setFromPoints(allPositions);
+
+    // 幾何中心 (Box3 的中心)
+    const myManualCenter = new THREE.Vector3();
+    myManualBox3.getCenter(myManualCenter);
+
+    globalBox3Ref.current = myManualBox3;
+    globalCenterRef.current = myManualCenter;
+
+    console.log("✅ 全局中心點計算完成:", globalBox3Ref.current,globalCenterRef.current);
+  }
+  // 定義視角模式
+  type FocusMode = 'top-down' | 'isometric' | 'tight-fit';
+  const onFocus = useCallback(async (mode: FocusMode = 'tight-fit') => {
+
+    if (!cameraRef.current || !boxerRef.current || !highlighterRef.current) return;
+    
+      const world = worldRef.current;
+      const camera = world.camera as OBC.OrthoPerspectiveCamera;
+      const selection = highlighterRef.current.selection.select;
+      const fragments = fragmentsRef.current as OBC.FragmentsManager;
+      const boxer = boxerRef.current;
+
+      boxer.list.clear();
+
+      const visibleMap: OBC.ModelIdMap = {};
+      const allPositions: THREE.Vector3[] = [];
+      
+      // 遍歷所有已載入的模型
+      for (const [modelId,model] of fragments.list) {
+        // 獲取可見的expressIds
+        const expressIds = await model.getItemsByVisibility(true);
+        
+        if (expressIds.length > 0) {
+          for( const expressId of expressIds ){
+            // 將這些visible為true 的 ID 加入 map
+            visibleMap[modelId] = new Set(expressIds);
+          }
         }
       }
-    }
 
-    if (hasSelection) {
-      await cameraRef.current.fitToItems(selection);
-    } else {
-      await cameraRef.current.fitToItems();
-    }
-  };
+      console.log(visibleMap);
+      const modelIdCount = Object.keys(visibleMap).length;
+      if(modelIdCount > 1 && globalBox3Ref.current && globalCenterRef.current){
+        console.log("偵測到使用者選擇全部樓層");
+        switch (mode) {
+          case 'top-down': // === 俯視模式 (像 2D 平面圖) ===
+            await camera.controls.setLookAt(
+              globalCenterRef.current.x + 40,globalCenterRef.current.y + 60,globalCenterRef.current.z + 80,
+              globalCenterRef.current.x + 40,globalCenterRef.current.y ,globalCenterRef.current.z,
+              true // 開啟過渡動畫
+            );
+            break;
+          // 125,-20,100,
+          //         0,0,0,
+          case 'isometric': // === 等角模式 (工程視角) ===
+            await camera.controls.setLookAt(
+            125,-20,100,
+            0,0,0,                    
+            true
+          );
+          break;
+
+          case 'tight-fit': // === 緊湊聚焦 (原版 fit 的改良) ===
+            // 使用底層的 fitToBox 並給予極小的 padding (預設 fit 會留很多白邊)
+            await camera.controls.fitToBox(globalBox3Ref.current, true, {
+              paddingLeft: 0.1, 
+              paddingRight: 0.1, 
+              paddingTop: 0.1, 
+              paddingBottom: 0.1
+            });
+            break;
+        }
+      }else{
+        console.log("偵測到使用者選擇單樓層或單元素");
+        await boxer.addFromModelIdMap(visibleMap);
+
+        const box3 = boxer.get();
+
+
+        // (防呆) 如果場景完全是空的，box3 會是空的，直接返回避免報錯
+        if (box3.isEmpty()) {
+          console.warn("場景中沒有任何模型可供聚焦");
+          return;
+        }
+        // 3. 計算選取物件的精確包圍盒 (Bounding Box) 與中心點 (Center)
+        // 這是比 camera.fit() 更精準的關鍵，我們手動算出幾何中心
+        const center = new THREE.Vector3();
+        box3.getCenter(center);
+        
+        const size = new THREE.Vector3();
+        box3.getSize(size);
+
+        // const maxDim = Math.max(size.x, size.y, size.z); // 找出長寬高最大的一邊
+        // const dist = Math.max(maxDim, 10); // 至少退後 1.5 倍物體大小，最少 50 單位
+
+        // console.log("size",size);
+        console.log("Center",center);
+        console.log("Box3",box3);
+
+        // 20,50,100,
+        //     20,0,20,
+        //     true 
+        // 4. 根據模式執行不同的相機操作
+        switch (mode) {
+          case 'top-down': // === 俯視模式 (像 2D 平面圖) ===
+            await camera.controls.setLookAt(
+              center.x,center.y + 50,center.z + 80,
+              center.x,center.y,center.z,
+              true // 開啟過渡動畫
+            );
+            break;
+          // 125,-20,100,
+          //         0,0,0,
+          case 'isometric': // === 等角模式 (工程視角) ===
+            await camera.controls.setLookAt(
+            125,-20,100,
+            0,0,0,                    
+            true
+          );
+          break;
+
+          case 'tight-fit': // === 緊湊聚焦 (原版 fit 的改良) ===
+            // 使用底層的 fitToBox 並給予極小的 padding (預設 fit 會留很多白邊)
+            await camera.controls.fitToBox(box3, true, {
+              paddingLeft: 0.1, 
+              paddingRight: 0.1, 
+              paddingTop: 0.1, 
+              paddingBottom: 0.1
+            });
+            break;
+        }
+      }
+      
+  },[worldRef, boxerRef, highlighterRef]);
   
   const onShow = async () => {
     await viewerApi.showAllElements();
@@ -1825,7 +1970,7 @@ useEffect(() => {
       markerRef.current?.dispose();
 
       await onShow();
-      await onFocus();
+      await onFocus('isometric');
 
       if(selectedDevice) setSelectedDevice(null);
       if(selectedFragId) setSelectedFragId(null);
@@ -1844,8 +1989,9 @@ useEffect(() => {
       setIsEACOn(false);
     }
     if (mode === 'allfloors') {
-      await onShow();
 
+      await onShow();
+      await onFocus('isometric');
       if(selectedDevice) setSelectedDevice(null);
       if(selectedFragId) setSelectedFragId(null);
       if(selectedFloor) setSelectedFloor(null);
@@ -3196,9 +3342,8 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
               <div className={`${(viewMode === 'floor' || viewMode === 'device')? "absolute ":"hidden"} -translate-x-1/2 left-1/2 top-55/1000 z-30 gap-0 flex ${
                 darkMode ? "bg-transparent " : "bg-white/80 border-gray-200"}`}> 
                   {/* Device按鈕 */}
-                  <Tooltip content={selectedDevice ? `設備模式 (Device)` : `請先選擇一個設備`} placement="bottom">
+                  <Tooltip content={`設備模式 (Device)`} placement="bottom">
                     <button
-                      disabled={ selectedDevice === null } 
                       onClick={() => {
                         if(viewMode === 'device') {
                           handleSwitchViewMode('floor');
@@ -3304,7 +3449,16 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
               }`}>
                 <Tooltip content="聚焦(Focus)" placement="bottom">
                   <button
-                    onClick={() => onFocus()}
+                    onClick={() =>{
+                      if(viewMode === 'global' || viewMode === 'allfloors'){
+                        onFocus('isometric');
+                      }else if(viewMode === 'floor'){
+                        onFocus('top-down')
+                      }else{
+                        onFocus('tight-fit');
+                      }
+                    }
+                  }
                     className={`p-3 transition-all duration-200 "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"`}
                   >
                     <Focus size={30} className="transform -skew-x-[-40deg]"/>
