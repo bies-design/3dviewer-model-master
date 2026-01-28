@@ -2426,7 +2426,6 @@ const outlineAllCamera = async() => {
         setCameras(data);
     }
 
-    console.log(cameras);
     const validCameras = cameras.filter((cam: any) => cam.elementName && cam.elementName.trim() !== "");
 
     if (validCameras.length === 0) {
@@ -2438,10 +2437,74 @@ const outlineAllCamera = async() => {
 
     console.log("目前有的camera",cameraNames);
 
+    const response2 = await fetch('/api/elements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        // 1. 將 operator 改為 "in"
+        // 2. 將 value 設定為你的陣列變數
+        queries: [
+          { 
+            id: 0, 
+            attribute: "Name", 
+            operator: "in", 
+            value: cameraNames, 
+            logic: "AND" 
+          }
+        ],
+        modelIds: Array.from(fragmentsRef.current.list.keys()),
+      }),
+    });
+    
+    if (!response.ok) throw new Error('Search request failed');
+
+    const foundElements = await response2.json();
+
+    console.log("抓取到的元素",foundElements);
+
+    if (foundElements.length > 0) {
+        const selection: OBC.ModelIdMap = {};
+
+        markerRef.current?.dispose();
+        outlinerRef.current?.clean();
+
+        for (const element of foundElements) {
+          const { modelId, attributes } = element;
+          const expressID = attributes._localId.value;
+          const elementName = attributes.Name.value;
+
+          if (!selection[modelId]) selection[modelId] = new Set();
+          selection[modelId].add(expressID);
+
+          const singleSelection: OBC.ModelIdMap = { [modelId]: new Set([expressID]) };
+          const point = await boxerRef.current?.getCenter(singleSelection);
+
+          if (worldRef.current && point) {
+            // 建立專屬於這台相機的 Label
+            const markerLabel = createMarkerElement(elementName, {
+              color: "#2BC3EC",
+              onClick: (name) => {
+                if (name) showCCTVDisplay(name);
+              }
+            });
+            // 在場景中建立 Marker
+            markerRef.current?.create(worldRef.current, markerLabel, point);
+          }
+        }
+
+        console.log("正在為以下相機加上輪廓：", selection);
+        await outlinerRef.current?.addItems(selection);
+
+        console.log("所有監視器標記完成");
+        
+        
+        console.log("已經加outline在",selection);
+      }
   }catch (error) {
       console.error("Failed to fetch cameras:", error);
   }
 }
+
 const handleLocateElementByName = useCallback(async (elementName: string) => {
     if (!components || !fragmentsRef.current) return;
 
@@ -2466,8 +2529,6 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
         const selection: OBC.ModelIdMap = {};
         for (const element of foundElements) {
           const { modelId, attributes } = element;
-          console.log("這是modelId",modelId);
-          console.log("這是attributes",attributes);
           const expressID = attributes._localId.value;
           if (!selection[modelId]) selection[modelId] = new Set();
           selection[modelId].add(expressID);
@@ -2478,7 +2539,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
         setIsMonitorOpen(false);
 
         markerRef.current?.dispose();
-        outlinerRef.current?.clean();
+        outlinerRef.current?.dispose();
 
         const markerLabel = createMarkerElement(elementName,{color: "#2BC3EC", 
           onClick: (elementName) => {
@@ -3158,13 +3219,16 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   <Tooltip content="監控模式 (CCTV)" placement="bottom">
                     <button
                       onClick={() => {
-                        // if(deviceViewMode === 'CCTV'){
-                        //   handleSwitchDeviceViewMode('');
-                        // }else{
-                        //   handleSwitchDeviceViewMode('CCTV');
-                        // }
+                        if(deviceViewMode === 'CCTV'){
+                          handleSwitchDeviceViewMode('');
+                          outlinerRef.current?.dispose();
+                          markerRef.current?.dispose();
+                        }else{
+                          handleSwitchDeviceViewMode('CCTV');
+                          outlineAllCamera();
+                        }
                         // setIsMonitorOpen(true);
-                        outlineAllCamera();
+                        
                       }}
                       className={`px-9  py-1 transition-all duration-200 border-r-1 border-[#2EC2EA] ${
                         deviceViewMode === 'CCTV'

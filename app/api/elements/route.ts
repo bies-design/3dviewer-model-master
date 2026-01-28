@@ -62,6 +62,9 @@ function buildMongoQuery(queries: any[], modelIds: string[] = []) {
     let condition;
 
     switch (operator) {
+      case 'in':
+        condition = { [field]: { $in: Array.isArray(value) ? value : [value] } };
+        break;
       case 'equal':
         condition = { [field]: value };
         break;
