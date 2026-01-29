@@ -3511,6 +3511,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                     <RightSideDataPanelForFloor
                       floor={selectedFloor}
                       darkMode={darkMode}
+                      onLocate={handleLocateElementByName}
                     />
                   }
                 </>

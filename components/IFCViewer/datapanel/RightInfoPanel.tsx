@@ -6,16 +6,24 @@ import {
     Thermometer, Droplets, Wind, Zap, Activity, Video, AlertTriangle, CheckCircle 
 } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
+import CameraPlayer from '@/components/camera/CameraPlayer';
 
 interface RightInfoPanelProps{
     floor: string;
+    onLocate?: (elementName: string) => void;
 }
 
 // 定義我們篩選後要存的資料結構
 interface FilteredCamera {
-    id: string;
-    name: string;   // 對應 cam.elementName
-    status?: string; 
+    id:string;
+    hlsUrl: string;
+    webrtcUrl: string;
+    title?: string;
+    elementName?: string;
+    isMinimized?: boolean;
+    isAlarm?: boolean;
+    onMinimizeToggle?: () => void;
+    onLocate?: (elementName: string) => void;
 }
 
 // 模擬數據：HVAC 出回水溫度 (溫差是效率關鍵)
@@ -39,53 +47,75 @@ const cameraList = [
 
 
 
-const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor}) => {
+const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
+    console.log("子層接收到的 floor:", floor);
     const {setToast} = useAppContext();
 
     const [floorCameras, setFloorCameras] = useState<FilteredCamera[]>([]);
 
+    const [selectedCamera, setSelectedCamera] = useState<FilteredCamera | null>(null);
+    
     useEffect(() => {
+        // 1. 定義在 useEffect 內部，確保它總是能存取到這次 render 的 floor
+        const getFloorCameras = async () => {
+            try {
+                const response = await fetch("/api/cameras");
+                let latestCameras = [];
+
+                if (response.ok) {
+                    const data = await response.json();
+                    latestCameras = data;
+                }
+                
+                // 防呆：確保 cam.elementName 存在
+                const validCameras = latestCameras.filter((cam: any) => cam.elementName && cam.elementName.trim() !== "");
+
+                const matchedCameras = validCameras
+                    .filter((cam: any) => cam.elementName.includes(floor))
+                    .map((cam: any) => ({
+                        id: cam.id,
+                        hlsUrl: cam.hlsUrl || "",
+                        webrtcUrl: cam.webrtcUrl || "",
+                        title: cam.title,
+                        elementName: cam.elementName,
+                        isAlarm: cam.isAlarm || false,
+                    }));
+
+                if (matchedCameras.length === 0) {
+                    // 記得這裡也要處理空狀態，可能需要清空之前的資料
+                    setFloorCameras([]); 
+                    setSelectedCamera(null);
+                    setToast({ message: "目前沒有已關聯 BIM 元件的監視器", type: "warning" }); // 建議不要在 useEffect 頻繁跳 toast，會很煩
+                    console.log(`樓層 ${floor} 無匹配攝影機`);
+                    return;
+                }
+
+                console.log(`樓層 ${floor} 配對到的攝影機:`, matchedCameras);
+                setFloorCameras(matchedCameras);
+
+                if (matchedCameras.length > 0) {
+                    setSelectedCamera(matchedCameras[0]);
+                }
+
+            } catch (error) {
+                console.error("Failed to fetch cameras:", error);
+                setToast({ message: "獲取攝影機列表失敗", type: "error" });
+            }
+        };
+
+        // 2. 執行邏輯
         if (floor) {
+            console.log("偵測到樓層變更，開始獲取攝影機:", floor); // Debug 用
             getFloorCameras();
+        } else {
+            // 如果 floor 為空，可能需要清空列表
+            setFloorCameras([]);
+            setSelectedCamera(null);
         }
-    }, [floor]);
+        
+    }, [floor, setToast]); // 3. 依賴陣列只需要 floor (setToast 通常是穩定的)
 
-    const getFloorCameras = async() => {
-        try{
-            const response = await fetch("/api/cameras");
-            let latestCameras = []; 
-
-            if (response.ok) {
-                const data = await response.json();
-                latestCameras = data;
-            }
-            const validCameras = latestCameras.filter((cam: any) => cam.elementName && cam.elementName.trim() !== "");
-
-            // 4. 核心邏輯：篩選樓層 + 轉換格式
-            const matchedCameras = validCameras
-                // (A) 篩選: 檢查 elementName 是否包含目前的 floor 字串
-                .filter((cam: any) => cam.elementName.includes(floor))
-                // (B) 轉換: 轉成 { id, name } 格式 (這裡我多補了 status 以配合 UI)
-                .map((cam: any) => ({
-                    id: cam.id || cam._id, // 確保抓到 ID
-                    name: cam.elementName,
-                    status: 'active' // 預設為 active，若 API 有回傳 status 可改為 cam.status
-                }));
-
-            if (matchedCameras.length === 0) {
-                setToast({ message: "目前沒有已關聯 BIM 元件的監視器", type: "warning" });
-                return;
-            }
-
-            console.log(`樓層 ${floor} 配對到的攝影機:`, matchedCameras);
-            setFloorCameras(matchedCameras);
-
-        }catch(error) {
-            console.error("Failed to fetch cameras:", error);
-            setToast({ message: "獲取攝影機列表失敗", type: "error" });
-        }
-
-    }
+    
 
     return (
         <div className="w-full h-full flex flex-col gap-3 p-2 pointer-events-auto">
@@ -185,62 +215,89 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor}) => {
             </div>
         </div>
 
-        {/* --- 區塊 3: CCTV 監控與安全 (影像與狀態) --- */}
-        <div className="w-full flex-1 p-3 flex flex-col">
-            <div className="flex justify-between items-center mb-2">
-                <h3 className="text-[#2BC3EC] font-bold flex items-center gap-2">
-                    <Video size={18} /> 安全監控
-                </h3>
-                <span className="text-[10px] text-gray-400 animate-pulse">LIVE ●</span>
-            </div>
+        {/* --- 區塊 3: CCTV 監控與安全 --- */}
+            <div className="w-full flex-1 p-3 flex flex-col min-h-0"> {/* min-h-0 很重要，防止 flex 溢出 */}
+                <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-[#2BC3EC] font-bold flex items-center gap-2">
+                        <Video size={18} /> 安全監控
+                    </h3>
+                    <span className="text-[10px] text-gray-400 animate-pulse">LIVE ●</span>
+                </div>
 
-            <div className="flex gap-2 flex-1">
-                {/* 左側：即時影像畫面 (Placeholder) */}
-                <div className="w-3/5 h-full bg-black/40 rounded border border-gray-600/50 relative overflow-hidden group cursor-pointer">
-                    {/* 模擬攝像頭畫面內容 */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="grid grid-cols-8 grid-rows-8 w-full h-full opacity-20">
-                            {/* 網格線裝飾 */}
-                            {[...Array(64)].map((_,i) => <div key={i} className="border-[0.5px] border-green-500/10"></div>)}
-                        </div>
-                        <span className="text-xs text-gray-500 z-10">NO SIGNAL / SELECT CAM</span>
-                    </div>
+                <div className="flex gap-2 flex-1 h-full min-h-0">
                     
-                    {/* UI 覆蓋層 */}
-                    <div className="absolute top-2 left-2 text-[10px] bg-red-600 text-white px-1 rounded">REC</div>
-                    <div className="absolute bottom-2 left-2 text-[10px] text-green-400 font-mono">CAM-03 [機房]</div>
-                    <div className="absolute inset-0 border-2 border-transparent group-hover:border-[#2BC3EC]/50 transition-colors pointer-events-none"></div>
-                </div>
-
-                {/* 右側：攝像頭列表 */}
-                <div className="w-2/5 h-full flex flex-col gap-1 overflow-y-auto">
-                    {floorCameras.length === 0 ? (
-                        <div className="text-gray-500 text-xs text-center mt-4">此樓層無攝影機</div>
-                    ) : (
-                        floorCameras.map((cam) => (
-                            <div key={cam.id} className={`flex items-center justify-between p-2 rounded border cursor-pointer hover:bg-white/5 transition-colors ${
-                                cam.status === 'warning' ? 'bg-red-900/20 border-red-500/50' : 'bg-slate-800/30 border-gray-700'
-                            }`}>
-                                <div className="flex flex-col overflow-hidden">
-                                    <span className="text-[10px] text-gray-300 truncate" title={cam.id}>
-                                        {cam.id}
-                                    </span>
-                                    {/* 顯示名稱 (cam.name) */}
-                                    <span className="text-xs font-bold text-white truncate" title={cam.name}>
-                                        {cam.name}
-                                    </span>
+                    {/* 左側：即時影像畫面 (整合 CameraPlayer) */}
+                    <div className="w-3/5 h-full bg-black rounded border border-gray-600/50 relative overflow-hidden flex flex-col">
+                        {selectedCamera ? (
+                            <CameraPlayer 
+                                hlsUrl={selectedCamera.hlsUrl}
+                                webrtcUrl={selectedCamera.webrtcUrl}
+                                title={selectedCamera.title}
+                                elementName={selectedCamera.elementName}
+                                isMinimized={false} // 在這個布局中強制展開
+                                isAlarm={selectedCamera.isAlarm} // 如果狀態是警告，開啟紅框閃爍
+                                onLocate={onLocate}
+                                // 移除 onMinimizeToggle 因為這裡我們希望它固定顯示
+                            />
+                        ) : (
+                            // 沒有選中攝影機時的 Placeholder
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-black/40">
+                                <div className="grid grid-cols-8 grid-rows-8 w-full h-full opacity-20 absolute inset-0 pointer-events-none">
+                                    {[...Array(64)].map((_, i) => <div key={i} className="border-[0.5px] border-green-500/10"></div>)}
                                 </div>
-                                {cam.status === 'warning' ? (
-                                    <AlertTriangle size={14} className="text-red-500 animate-bounce flex-shrink-0" />
-                                ) : (
-                                    <CheckCircle size={14} className="text-green-500 flex-shrink-0" />
-                                )}
+                                <span className="text-xs text-gray-500 z-10">NO SIGNAL / SELECT CAM</span>
                             </div>
-                        ))
-                    )}
+                        )}
+                    </div>
+
+                    {/* 右側：攝像頭列表 (作為控制器) */}
+                    <div className="w-2/5 h-full flex flex-col gap-1 overflow-y-auto pr-1">
+                        {floorCameras.length === 0 ? (
+                            <div className="text-gray-500 text-xs text-center mt-4">此樓層無攝影機</div>
+                        ) : (
+                            floorCameras.map((cam) => {
+                                // 判斷是否為當前選中的攝影機
+                                const isSelected = selectedCamera?.id === cam.id;
+                                
+                                return (
+                                    <div 
+                                        key={cam.id} 
+                                        // 5. 點擊事件：切換選中的攝影機
+                                        onClick={() => setSelectedCamera(cam)}
+                                        className={`flex items-center justify-between p-2 rounded border cursor-pointer transition-all ${
+                                            // 6. 樣式邏輯：選中時高亮，警告時紅色，普通時灰色
+                                            isSelected 
+                                                ? 'bg-[#2BC3EC]/20 border-[#2BC3EC] shadow-[0_0_10px_rgba(43,195,236,0.3)]' 
+                                                : cam.isAlarm
+                                                    ? 'bg-red-900/20 border-red-500/50 hover:bg-red-900/30' 
+                                                    : 'bg-slate-800/30 border-gray-700 hover:bg-white/10'
+                                        }`}
+                                    >
+                                        <div className="flex flex-col overflow-hidden">
+                                            <span className={`text-[10px] truncate ${isSelected ? 'text-cyan-200' : 'text-gray-400'}`} title={cam.id}>
+                                                {cam.id}
+                                            </span>
+                                            <span className={`text-xs font-bold truncate ${isSelected ? 'text-white' : 'text-gray-300'}`} title={cam.elementName}>
+                                                {cam.title}
+                                            </span>
+                                        </div>
+                                        
+                                        {/* 狀態圖示 */}
+                                        {cam.isAlarm? (
+                                            <AlertTriangle size={14} className="text-red-500 animate-bounce flex-shrink-0" />
+                                        ) : isSelected ? (
+                                            // 選中時顯示播放圖示
+                                            <div className="w-2 h-2 bg-[#2BC3EC] rounded-full animate-pulse shadow-[0_0_5px_#2BC3EC]"></div>
+                                        ) : (
+                                            <CheckCircle size={14} className="text-green-500/50 flex-shrink-0" />
+                                        )}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
 
         </div>
     );

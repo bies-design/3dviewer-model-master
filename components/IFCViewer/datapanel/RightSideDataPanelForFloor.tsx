@@ -8,6 +8,7 @@ import RightInfoPanel from "./RightInfoPanel";
 interface RightSideDataPanelForFloorProps {
   floor: string | null;
   darkMode: boolean;
+  onLocate?: (elementName: string) => void;
 }
 // 1. 準備圖表數據 (chartData)
 // name 會顯示在圓環中心上方，value 控制進度條長度
@@ -50,7 +51,8 @@ const last30DaysData = [
   { day: "01-14", value: 3000 },
 ];
 
-const RightSideDataPanelForFloor: React.FC<RightSideDataPanelForFloorProps> = ({ floor, darkMode }) => {
+const RightSideDataPanelForFloor: React.FC<RightSideDataPanelForFloorProps> = ({ floor, darkMode,onLocate }) => {
+  console.log("父層接收到的 floor:", floor);
   return (
     <div className="absolute hud-panel right-4 top-25 bottom-10 z-10 flex flex-col gap-4 min-w-[300px] min-h-[600px] w-[20%] h-[85%] pointer-events-none">
       
@@ -61,7 +63,12 @@ const RightSideDataPanelForFloor: React.FC<RightSideDataPanelForFloorProps> = ({
       </h3>
       
       <div className={floor ? "w-full h-full" : "w-full h-full hidden"}>
-        {floor && <RightInfoPanel/>}
+        {floor && 
+          <RightInfoPanel 
+            key={floor} //加入key讓floor改變時 會重塑component
+            floor={floor}
+            onLocate={onLocate}
+          />}
       </div>
     </div>
   );
