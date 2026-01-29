@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React,{memo} from "react";
 import { Card, Tab, Tabs, ButtonProps, CardProps } from "@heroui/react";
 import { ResponsiveContainer, RadialBarChart, RadialBar, Cell, PolarAngleAxis, Tooltip, BarChart, CartesianGrid, XAxis, YAxis, AreaChart, Area, Bar} from "recharts";
 import RightInfoPanel from "./RightInfoPanel";
@@ -54,7 +54,7 @@ const last30DaysData = [
 const RightSideDataPanelForFloor: React.FC<RightSideDataPanelForFloorProps> = ({ floor, darkMode,onLocate }) => {
   console.log("父層接收到的 floor:", floor);
   return (
-    <div className="absolute hud-panel right-4 top-25 bottom-10 z-10 flex flex-col gap-4 min-w-[300px] min-h-[600px] w-[20%] h-[85%] pointer-events-none">
+    <div className="absolute hud-panel right-4 top-25 bottom-10 z-10 flex flex-col gap-4 min-w-[350px] min-h-[600px] w-[20%] h-[85%] pointer-events-none">
       
       {/* Header */}
       <h3 className="m-3 text-xl font-bold flex items-center gap-2 text-white"> 
@@ -73,5 +73,5 @@ const RightSideDataPanelForFloor: React.FC<RightSideDataPanelForFloorProps> = ({
     </div>
   );
 }
-  
-export default RightSideDataPanelForFloor;
+// memo: is the props unchanged , the component won't be rerendered
+export default memo(RightSideDataPanelForFloor);

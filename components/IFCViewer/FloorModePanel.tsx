@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef,useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Search, Loader2, ChevronRight } from "lucide-react";
+import { Search, Loader2, ChevronRight, X } from "lucide-react";
 import * as OBC from "@thatopen/components";
 import * as OBCF from "@thatopen/components-front";
 import { useAppContext } from "@/contexts/AppContext";
@@ -48,13 +48,17 @@ const FloorModePanel: React.FC<FloorModePanelProps> = ({
     highlighterRef,
 }) => {
 
-const { selectedFloor, setSelectedFloor, viewMode,setViewMode,selectedDevice, setSelectedDevice ,selectedFragId, setSelectedFragId, setSelectedDeviceName} = useAppContext(); 
+const { selectedFloor, setSelectedFloor, viewMode,selectedDevice, setSelectedDevice , setSelectedFragId, setSelectedDeviceName,
+        setIsGlobalLoading,setLoadingMessage
+        } = useAppContext(); 
 
 const [availableFloors, setAvailableFloors] = useState<string[]>([]);
 const [filteredDevices, setFilteredDevices] = useState<TResultItem[]>([]);
 const [searchText, setSearchText] = useState("");
 const [isLoading, setIsLoading] = useState(false);
 const [debouncedSearch, setDebouncedSearch] = useState("");
+
+const isLoadingRef = useRef(false);
 
 // 記錄哪些種類被展開了 (儲存種類名稱字串) 用set保證不重複
 const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -112,20 +116,27 @@ useEffect(() => {
 // --- 3. 核心功能：根據樓層載入設備 (篩選 Name 不為空) ---
 const fetchAndIsolateFloor = useCallback(async (floor: string | null) => {
     
-    setSelectedDevice(null);
-    setSelectedDeviceName(null);
-    //防止過度呼叫
-    if(isLoading) {
+    if(isLoadingRef.current){
         console.log("過度頻繁呼叫 所以我擋住了");
         return;
     }
+
+    isLoadingRef.current = true;
+
+    setIsLoading(true);
+
+    setSelectedDevice(null);
+    setSelectedDeviceName(null);
 
     prevSelectedFloorRef.current = floor;
     lastViewModeRef.current = 'floor';
 
     const hider = components.get(OBC.Hider);
     const highlighter = components.get(OBCF.Highlighter);
+    setSearchText('');
     setIsLoading(true);
+    setIsGlobalLoading(true);
+    setLoadingMessage("正在分離樓層...");
 
     try {
         await highlighter.clear("select");
@@ -184,8 +195,7 @@ const fetchAndIsolateFloor = useCallback(async (floor: string | null) => {
             
             setFilteredDevices(foundItems);
             
-            console.log("執行一次樓層隔離邏輯");
-            onFocus('top-down');
+            await onFocus('top-down');
             // // 確保渲染完成後再對焦
             // await cameraRef.current?.fitToItems(finalResult);
             // console.log("第一個focus")
@@ -199,8 +209,10 @@ const fetchAndIsolateFloor = useCallback(async (floor: string | null) => {
         console.error("Floor search failed:", error);
     } finally {
         setIsLoading(false);
+        setIsGlobalLoading(false);
+        isLoadingRef.current = false;
     }
-}, [components, loadedModelIds, viewMode, isLoading]);
+}, [components, loadedModelIds, viewMode]);
 
 // 只有在以下兩種情況才執行 3D 隔離與資料抓取：
 // 1. 樓層真正改變時 (手動下拉選單)
@@ -230,6 +242,7 @@ const onSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     if (setSelectedFloor) {
         setSelectedFloor(val === "" ? null : val);
+        console.log("設定樓層",val);
     }
 };
 
@@ -279,6 +292,8 @@ const handleDeviceClick = async (device: TResultItem) => {
         if (setSelectedFragId) setSelectedFragId(device.fragmentId);
         if (setSelectedDeviceName) setSelectedDeviceName(device.name);
 
+        setSearchText(device.name);
+
         console.log("選中",device.expressID);
         console.log("選中",device.fragmentId);
         console.log("選中",device.name);
@@ -286,7 +301,7 @@ const handleDeviceClick = async (device: TResultItem) => {
         // if(handleSwitchViewMode) await handleSwitchViewMode('device');
         
         console.log("切換至設備模式:", device);
-        onFocus('tight-fit');
+        await onFocus('tight-fit');
         
     }catch(e){
         console.log("選中失敗",e);
@@ -297,7 +312,7 @@ const handleDeviceClick = async (device: TResultItem) => {
 const floorHighlightHandler = useCallback(async (selection: OBC.ModelIdMap) => {
 
     console.log("現在的viewmode是",viewModeRef.current);
-    if(viewModeRef.current === 'device') return;
+    // if(viewModeRef.current === 'device') return;
 
     // 若上面marker.dispose()沒有刪好 這段強制清除所有幽靈標記
     const existingMarkers = document.querySelectorAll('.bim-marker-label');
@@ -332,6 +347,7 @@ const floorHighlightHandler = useCallback(async (selection: OBC.ModelIdMap) => {
                         // 叫ts閉嘴
                         const deviceName = (attributes.Name as any).value;
                         setSelectedDeviceName(deviceName);
+                        setSearchText(deviceName);
                         console.log("選中",deviceName);
                     }
                 }
@@ -462,11 +478,12 @@ return (
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             placeholder={"在目前條件查詢..."}
-            className={`w-full p-2 pl-10 rounded border ${
-                darkMode ? "bg-transparent text-white border-gray-600" : "bg-light-background text-gray-900 border-gray-300"
+            className={`w-full p-2 pl-10 border ${
+                darkMode ? "text-white border-white/20 bg-white/10 backdrop-blur-md" : "bg-light-background text-gray-900 border-gray-300"
             }`}
             />
             <Search size={18} className="absolute left-1/5 top-50/100 -translate-y-1/2 opacity-50" />
+            {(searchText !== "") && <X size={18} onClick={()=>{setSearchText("");setSelectedDevice(null);setSelectedDeviceName(null);}} className="absolute right-3 top-50/100 -translate-y-1/2 opacity-50 cursor-pointer"/>}
         </div>
 
         <div className="flex-grow overflow-y-auto">
@@ -476,7 +493,7 @@ return (
             </h4>
 
             {displayDevices.length === 0 ? (
-                <p className="text-sm opacity-60 text-center py-8">
+                <p className="text-sm text-white/80 text-center py-8">
                     {isLoading ? "載入中..." : "未找到設備"}
                 </p>
             ) : (

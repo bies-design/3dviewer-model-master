@@ -61,6 +61,7 @@ import WarningHistoryModal from "@/components/WarningHistoryModal";
 import CameraViewerPanel from "@/components/camera/CameraViewerPanel";
 import LinkedCameraPanel from "@/components/camera/LinkedCameraPanel";
 import { createMarkerElement } from "@/app/markerElements/CCTVMarkerDiv";
+import GlobalLoader from "@/components/loader/GlobalLoader";
 
 // --- 模擬圖表數據 ---
   const powerData = [
@@ -139,7 +140,8 @@ export default function IFCViewerContainer() {
     downloadProgress, setDownloadProgress, downloadStatus, setDownloadStatus, showDownloadProgress, setShowDownloadProgress,
     showProgressModal, setShowProgressModal, progress, setProgress, setToast,
     viewMode, setViewMode, selectedFloor, setSelectedFloor, selectedDevice, setSelectedDevice, selectedFragId, setSelectedFragId,
-    selectedDeviceName, setSelectedDeviceName, isHVACOn, setIsHVACOn, isCCTVOn, setIsCCTVOn, isEACOn, setIsEACOn
+    selectedDeviceName, setSelectedDeviceName, isHVACOn, setIsHVACOn, isCCTVOn, setIsCCTVOn, isEACOn, setIsEACOn,
+    isGlobalLoading,setIsGlobalLoading,loadingMessage,setLoadingMessage
   } = useAppContext();
 
   const workerRef = useRef<Worker | null>(null);
@@ -622,10 +624,14 @@ useEffect(() => {
     
     setProgress(100);
     // 獲取所有模型的中點和Box3
+
     setTimeout(async () => {
       await getAllCenterAndBox3();
+
     }, 1000);
 
+    onFocus('isometric');
+    console.log("結束了 所以我聚焦一次");
     setShowProgressModal(false);
 
   };
@@ -776,12 +782,8 @@ useEffect(() => {
         model.useCamera(cam);
         world.scene.three.add(model.object);
         await fragments.core.update(true);
-        if (worldRef.current?.camera) {
-          onFocus('isometric');
-          console.log("我聚焦拉");
-
-        }
       });
+      
 
       const casters = components.get(OBC.Raycasters);
       casters.get(world);
@@ -1088,7 +1090,7 @@ useEffect(() => {
       }
 
       setIsViewerReady(true);
-
+      
       return () => {
         resizeObserver.disconnect();
         if (world.camera.controls) {
@@ -1823,17 +1825,18 @@ useEffect(() => {
   const onFocus = useCallback(async (mode: FocusMode = 'tight-fit') => {
 
     if (!cameraRef.current || !boxerRef.current || !highlighterRef.current) return;
-    
+
+      setIsGlobalLoading(true);
+      setLoadingMessage("正在聚焦中");
+
       const world = worldRef.current;
       const camera = world.camera as OBC.OrthoPerspectiveCamera;
-      const selection = highlighterRef.current.selection.select;
       const fragments = fragmentsRef.current as OBC.FragmentsManager;
       const boxer = boxerRef.current;
 
       boxer.list.clear();
 
       const visibleMap: OBC.ModelIdMap = {};
-      const allPositions: THREE.Vector3[] = [];
       
       // 遍歷所有已載入的模型
       for (const [modelId,model] of fragments.list) {
@@ -1859,6 +1862,7 @@ useEffect(() => {
               globalCenterRef.current.x + 40,globalCenterRef.current.y ,globalCenterRef.current.z,
               true // 開啟過渡動畫
             );
+            setIsGlobalLoading(false);
             break;
           // 125,-20,100,
           //         0,0,0,
@@ -1868,6 +1872,7 @@ useEffect(() => {
             0,0,0,                    
             true
           );
+          setIsGlobalLoading(false);
           break;
 
           case 'tight-fit': // === 緊湊聚焦 (原版 fit 的改良) ===
@@ -1878,6 +1883,7 @@ useEffect(() => {
               paddingTop: 0.1, 
               paddingBottom: 0.1
             });
+            setIsGlobalLoading(false);
             break;
         }
       }else{
@@ -1890,6 +1896,7 @@ useEffect(() => {
         // (防呆) 如果場景完全是空的，box3 會是空的，直接返回避免報錯
         if (box3.isEmpty()) {
           console.warn("場景中沒有任何模型可供聚焦");
+          setIsGlobalLoading(false);
           return;
         }
         // 3. 計算選取物件的精確包圍盒 (Bounding Box) 與中心點 (Center)
@@ -1900,16 +1907,9 @@ useEffect(() => {
         const size = new THREE.Vector3();
         box3.getSize(size);
 
-        // const maxDim = Math.max(size.x, size.y, size.z); // 找出長寬高最大的一邊
-        // const dist = Math.max(maxDim, 10); // 至少退後 1.5 倍物體大小，最少 50 單位
-
-        // console.log("size",size);
         console.log("Center",center);
         console.log("Box3",box3);
 
-        // 20,50,100,
-        //     20,0,20,
-        //     true 
         // 4. 根據模式執行不同的相機操作
         switch (mode) {
           case 'top-down': // === 俯視模式 (像 2D 平面圖) ===
@@ -1918,6 +1918,7 @@ useEffect(() => {
               center.x,center.y,center.z,
               true // 開啟過渡動畫
             );
+            setIsGlobalLoading(false);
             break;
           // 125,-20,100,
           //         0,0,0,
@@ -1927,6 +1928,7 @@ useEffect(() => {
             0,0,0,                    
             true
           );
+          setIsGlobalLoading(false);
           break;
 
           case 'tight-fit': // === 緊湊聚焦 (原版 fit 的改良) ===
@@ -1937,6 +1939,7 @@ useEffect(() => {
               paddingTop: 0.1, 
               paddingBottom: 0.1
             });
+            setIsGlobalLoading(false);
             break;
         }
       }
@@ -1964,6 +1967,8 @@ useEffect(() => {
     setViewMode(mode);
 
     if (mode === 'global') {
+      setIsGlobalLoading(true);
+      setLoadingMessage("正在切換成全景模式...");
       // 2. 恢復 3D 視圖全景
       // 這時候 FloorModePanel 已經準備要消失了，這裡的操作才是權威
       outlinerRef.current?.clean();
@@ -1987,8 +1992,13 @@ useEffect(() => {
       setIsHVACOn(false);
       setIsCCTVOn(false);
       setIsEACOn(false);
+
+      setIsGlobalLoading(false);
     }
     if (mode === 'allfloors') {
+
+      setIsGlobalLoading(true);
+      setLoadingMessage("正在切換成分層模式...");
 
       outlinerRef.current?.clean();
       markerRef.current?.dispose();
@@ -2011,8 +2021,11 @@ useEffect(() => {
       setIsHVACOn(false);
       setIsCCTVOn(false);
       setIsEACOn(false);
+
+      setIsGlobalLoading(false);
     }
     if (mode === 'floor') {
+
       //恢復單層
       // 去掉selected device跟fragId
       if(selectedDevice) setSelectedDevice(null);
@@ -2026,15 +2039,20 @@ useEffect(() => {
       setIsHVACOn(false);
       setIsCCTVOn(false);
       setIsEACOn(false);
+      
     }
+
     if(mode === 'device') {
+
       outlinerRef.current?.clean();
       markerRef.current?.dispose();
       // 按鈕狀態管理
       setIsHVACOn(false);
       setIsCCTVOn(false);
       setIsEACOn(false);
+
     }
+
   };
 
   const originalColors  = useRef(new Map<
@@ -2584,7 +2602,7 @@ const handleIssueForms = async() => {
 }
 
 const outlineAllCamera = async() => {
-  if (!components || !fragmentsRef.current) return;
+  if (!components || !fragmentsRef.current || !selectedFloor) return;
 
   try {
     const response = await fetch("/api/cameras");
@@ -2598,12 +2616,23 @@ const outlineAllCamera = async() => {
     const validCameras = latestCameras.filter((cam: any) => cam.elementName && cam.elementName.trim() !== "");
 
     if (validCameras.length === 0) {
-      setToast({ message: "目前沒有已關聯 BIM 元件的監視器", type: "warning" });
+      setToast({ message: `資料庫中未有攝影機 ${selectedFloor}`, type: "warning" });
       return;
     }
 
-    const cameraNames = validCameras.map((cam: any ) => cam.elementName);
+    // 只選出該樓層的camera
+    const cameraNames = validCameras
+    .filter((cam: any) => {
+      const camFloor = cam.elementName.split('-')[0];
+      return camFloor === selectedFloor;
+    })
+    .map((cam:any) => cam.elementName);
 
+    if(cameraNames.length === 0){
+      setToast({ message: `${selectedFloor}未有監視器資訊`, type: "warning" });
+      setIsCCTVOn(false);
+      return;
+    }
     console.log("目前有的camera",cameraNames);
 
     const response2 = await fetch('/api/elements', {
@@ -2898,7 +2927,11 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
             {/* UserManagementPanel is rendered outside SideBar for full-page expansion */}
         {/* </SideBar>  */}
       </div>
-
+          <GlobalLoader
+            isLoadings={isGlobalLoading}
+            message={loadingMessage}
+            darkMode={darkMode}
+          />
       {showLoginModal && (
         <LoginModal
           onClose={() => setShowLoginModal(false)}
@@ -2930,16 +2963,16 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
             {/* Device頁面 */}
             <div className={viewMode === 'device' ? "absolute w-[81%] h-[84.5%] bottom-10 left-88 right-4 flex gap-2 z-30": "absolute w-full h-full "}>
               {/* 左側 */}
-              <div className={viewMode === 'device' ? " w-1/2 h-full flex flex-col gap-2":""}>
+              <div className={viewMode === 'device' ? `h-full flex flex-col gap-2 ${selectedDeviceName ? "w-1/2" : "w-full"}`:""}>
                 {/* 左一 */}
-                <div className={`w-full h-1/3 flex flex-col gap-2 ${viewMode === 'device' ? "":"hidden"}`}>
+                <div className={`w-full ${selectedDeviceName? "h-1/3" : "h-1/15"} flex flex-col gap-2 ${viewMode === 'device' ? "":"hidden"}`}>
                   <div className="hud-panel w-full h-full pl-4 flex justify-between items-center ">
                     <p className="font-bold text-white text-lg tracking-wider">
                       {selectedDeviceName ? `${selectedDeviceName} 設備基本資訊` : "請選擇一個設備"} </p>
                     <ChevronRight size={20} className="text-gray-500 hover:cursor-pointer"/>
                   </div>
                   {/* 左一下 */}
-                  <div className="flex gap-2 w-full flex-1">
+                  <div className={selectedDeviceName ? "flex gap-2 w-full flex-1" : "hidden"}>
                     {/* 效率流量 */}
                     <div className="w-2/9 h-full flex flex-col gap-2">
                       <div className="hud-panel relative p-4 flex flex-col items-center justify-center w-full h-1/2">
@@ -2994,9 +3027,9 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   </div>
                 </div>
                 {/* 左二 3D viewer */}
-                <div ref={viewerRef} className={viewMode === 'device' ? " w-full h-1/3 hud-panel " : "absolute top-0 w-dhw h-dvh"}/>
+                <div ref={viewerRef} className={viewMode === 'device' ? ` w-full hud-panel ${selectedDeviceName ? "h-1/3":"h-full"} ` : "absolute top-0 w-dhw h-dvh"}/>
                 {/* 左三 */}
-                <div className={viewMode === 'device' ? "w-full h-1/3 flex gap-2":"hidden"}>
+                <div className={viewMode === 'device' ? `w-full h-1/3 flex gap-2 ${selectedDeviceName ? "" : "hidden"}`:"hidden"}>
                   <div className="hud-panel p-4 flex flex-col w-full h-full">
                     <div className="text-white text-xl font-medium border-b border-gray-600/50">環境溫度</div>
                     <div className="flex-1 content-center">
@@ -3024,7 +3057,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                 </div>
               </div>
               {/* 右側 */}
-              <div className={` w-1/2 h-full flex flex-col gap-2 ${viewMode === 'device' ? "":"hidden"}`}>
+              <div className={` ${viewMode === 'device' ? `${selectedDeviceName ? "w-1/2 h-full flex flex-col gap-2": "hidden"}`:"hidden"} `}>
                 {/* 右一 :能耗狀況 & 運行狀況 */}
                 <div className="w-full h-330/1000 flex gap-2">
                   {/* 能耗狀況 (電池圖) */}
@@ -3370,12 +3403,19 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   {/* hvac按鈕 */}
                   <Tooltip content={selectedFloor ? "顯示暖通空調 (HVAC)" : `請先選擇一個樓層`} placement="bottom">
                     <button
-                      disabled={(viewMode === 'device' || !selectedFloor )}
                       onClick={() => {
-                        if(isHVACOn){
-                          setIsHVACOn(false);
+                        if(viewMode === 'floor' && selectedFloor){
+                          if(isHVACOn){
+                            setIsHVACOn(false);
+                          }else{
+                            setIsHVACOn(true);
+                          }
                         }else{
-                          setIsHVACOn(true);
+                          if(viewMode === 'floor'){
+                            setToast({ message: `請先選擇一個樓層`, type: "error" });
+                          }else{
+                            setToast({ message: `請切換到單層模式並選擇樓層`, type: "error" });
+                          }
                         }
                       }}
                       className={`px-9  py-1 transition-all duration-200 border-r-1 border-[#2EC2EA] ${
@@ -3390,19 +3430,26 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   {/* cctv按鈕 */}
                   <Tooltip content={selectedFloor ? "顯示監控 (CCTV)" : `請先選擇一個樓層`} placement="bottom">
                     <button
-                      disabled={(isCameraLoading || viewMode === "device" || !selectedFloor)}
                       onClick={async() => {
-                        if(isCCTVOn){
-                          setIsCCTVOn(false);
-                          outlinerRef.current?.dispose();
-                          markerRef.current?.dispose();
+                        if(viewMode === 'floor' && selectedFloor){
+                          if(isCCTVOn){
+                            setIsCCTVOn(false);
+                            outlinerRef.current?.dispose();
+                            markerRef.current?.dispose();
+                          }else{
+                            setIsCameraLoading(true);
+                            setIsCCTVOn(true);
+                            await outlineAllCamera();
+                            setIsCameraLoading(false);
+                          }
+                          // setIsMonitorOpen(true);
                         }else{
-                          setIsCameraLoading(true);
-                          setIsCCTVOn(true);
-                          await outlineAllCamera();
-                          setIsCameraLoading(false);
+                          if(viewMode === 'floor'){
+                            setToast({ message: `請先選擇一個樓層`, type: "error" });
+                          }else{
+                            setToast({ message: `請切換到單層模式並選擇樓層`, type: "error" });
+                          }
                         }
-                        // setIsMonitorOpen(true);
                       }}
                       className={`${isCameraLoading ? "opacity-50 cursor-wait px-9 py-1":`
                         px-9 py-1 transition-all duration-200 border-r-1 border-[#2EC2EA] ${
@@ -3417,12 +3464,19 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   {/* 門禁按鈕 */}
                   <Tooltip content={selectedFloor ? "顯示門禁 (EAC)" : "請先選擇一個樓層"} placement="bottom">
                     <button
-                      disabled={(viewMode === 'device' || !selectedFloor)}
                       onClick={() => {
-                        if(isEACOn){
-                          setIsEACOn(false);
+                        if(viewMode === 'floor' && selectedFloor){
+                          if(isEACOn){
+                            setIsEACOn(false);
+                          }else{
+                            setIsEACOn(true);
+                          }
                         }else{
-                          setIsEACOn(true);
+                          if(viewMode === 'floor'){
+                            setToast({ message: `請先選擇一個樓層`, type: "error" });
+                          }else{
+                            setToast({ message: `請切換到單層模式並選擇樓層`, type: "error" });
+                          }
                         }
                       }}
                       className={`px-9 py-1 transition-all duration-200  ${

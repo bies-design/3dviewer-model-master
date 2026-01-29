@@ -1,4 +1,4 @@
-import React ,{useState,useEffect}from 'react';
+import React ,{useState,useEffect,memo}from 'react';
 import { 
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
@@ -48,7 +48,6 @@ const cameraList = [
 
 
 const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
-    console.log("子層接收到的 floor:", floor);
     const {setToast} = useAppContext();
 
     const [floorCameras, setFloorCameras] = useState<FilteredCamera[]>([]);
@@ -56,10 +55,14 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
     const [selectedCamera, setSelectedCamera] = useState<FilteredCamera | null>(null);
     
     useEffect(() => {
+
+        console.log("子層獲取的樓層",floor);
+        const controller = new AbortController();
+        const signal = controller.signal;
         // 1. 定義在 useEffect 內部，確保它總是能存取到這次 render 的 floor
         const getFloorCameras = async () => {
             try {
-                const response = await fetch("/api/cameras");
+                const response = await fetch("/api/cameras",{signal});
                 let latestCameras = [];
 
                 if (response.ok) {
@@ -67,6 +70,7 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
                     latestCameras = data;
                 }
                 
+                if(signal.aborted) return;
                 // 防呆：確保 cam.elementName 存在
                 const validCameras = latestCameras.filter((cam: any) => cam.elementName && cam.elementName.trim() !== "");
 
@@ -85,7 +89,7 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
                     // 記得這裡也要處理空狀態，可能需要清空之前的資料
                     setFloorCameras([]); 
                     setSelectedCamera(null);
-                    setToast({ message: "目前沒有已關聯 BIM 元件的監視器", type: "warning" }); // 建議不要在 useEffect 頻繁跳 toast，會很煩
+                    setToast({ message: "該樓層未有監視器", type: "warning" }); // 建議不要在 useEffect 頻繁跳 toast，會很煩
                     console.log(`樓層 ${floor} 無匹配攝影機`);
                     return;
                 }
@@ -97,7 +101,11 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
                     setSelectedCamera(matchedCameras[0]);
                 }
 
-            } catch (error) {
+            } catch (error: any) {
+                if(error.name === 'AbortError') {
+                    console.log('上一筆請求已取消 (React Strict Mode Cleanup)');
+                    return;
+                }
                 console.error("Failed to fetch cameras:", error);
                 setToast({ message: "獲取攝影機列表失敗", type: "error" });
             }
@@ -112,44 +120,48 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
             setFloorCameras([]);
             setSelectedCamera(null);
         }
+
+        return()=>{
+            controller.abort();
+        };
         
-    }, [floor, setToast]); // 3. 依賴陣列只需要 floor (setToast 通常是穩定的)
+    }, [floor]); 
 
     
 
     return (
-        <div className="w-full h-full flex flex-col gap-3 p-2 pointer-events-auto">
+        <div className="w-full h-full flex flex-col gap-2 p-2 pointer-events-auto">
         
         {/* --- 區塊 1: 環境舒適度綜覽 (最頂端 Summary) --- */}
-        <div className="w-full h-[15%] flex gap-2">
+        <div className="w-full h-[15%] flex gap-2 ">
             {/* 溫度 */}
             <div className=" flex-1 flex flex-col items-center justify-center relative">
                 <div className="absolute top-2 left-2 flex items-center gap-1">
                     <Thermometer size={14} className="text-[#2BC3EC]" />
-                    <span className="text-[10px] text-gray-400">平均溫度</span>
+                    <span className="text-[14px] text-white/80">平均溫度</span>
                 </div>
-                <span className="text-3xl font-mono text-white font-bold mt-2">24.5<span className="text-sm ml-1 text-gray-400">°C</span></span>
+                <span className="text-3xl font-mono text-white font-bold mt-2">24.5<span className="text-sm ml-1 text-white/80">°C</span></span>
             </div>
             {/* 濕度 */}
             <div className=" flex-1 flex flex-col items-center justify-center relative">
                 <div className="absolute top-2 left-2 flex items-center gap-1">
                     <Droplets size={14} className="text-[#2BC3EC]" />
-                    <span className="text-[10px] text-gray-400">相對濕度</span>
+                    <span className="text-[14px] text-white/80">相對濕度</span>
                 </div>
-                <span className="text-3xl font-mono text-white font-bold mt-2">58<span className="text-sm ml-1 text-gray-400">%</span></span>
+                <span className="text-3xl font-mono text-white font-bold mt-2">58<span className="text-sm ml-1 text-white/80">%</span></span>
             </div>
             {/* CO2 (空氣品質) */}
             <div className=" flex-1 flex flex-col items-center justify-center relative">
                 <div className="absolute top-2 left-2 flex items-center gap-1">
                     <Wind size={14} className="text-[#2BC3EC]" />
-                    <span className="text-[10px] text-gray-400">CO2</span>
+                    <span className="text-[14px] text-white/80">CO2</span>
                 </div>
-                <span className="text-3xl font-mono text-green-400 font-bold mt-2">420<span className="text-sm ml-1 text-gray-400">ppm</span></span>
+                <span className="text-3xl font-mono text-green-400 font-bold mt-2">420<span className="text-sm ml-1 text-white/80">ppm</span></span>
             </div>
         </div>
 
         {/* --- 區塊 2: HVAC 系統核心 (重點數據) --- */}
-        <div className="w-full h-[40%]  p-3 flex flex-col">
+        <div className="w-full h-[40%] p-2 flex flex-col">
             <div className="flex justify-between items-center mb-2 border-b border-gray-600/30 pb-2">
                 <h3 className="text-[#2BC3EC] font-bold flex items-center gap-2">
                     <Activity size={18} /> HVAC 冰水系統
@@ -163,16 +175,16 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
                     {/* 模擬 Liquid Gauge 的位置 */}
                     <div className="w-24 h-24 rounded-full border-4 border-blue-500/30 flex items-center justify-center relative overflow-hidden bg-blue-900/20">
                         <div className="absolute bottom-0 w-full h-[65%] bg-blue-500/60 animate-pulse"></div>
-                        <span className="relative z-10 text-xl font-bold text-white">65%</span>
+                        <span className="relative z-10 text-xl font-bold text-white">65<span className='text-sm text-white/80'>%</span></span>
                     </div>
-                    <span className="text-xs text-gray-400 mt-2">系統負載率</span>
+                    <span className="text-xs text-white/80 mt-2">系統負載率</span>
                 </div>
 
                 {/* 右側：出回水溫差圖表 (AreaChart) */}
                 <div className="w-2/3 flex flex-col">
                     <div className="flex justify-end gap-3 text-[10px] mb-1">
-                        <span className="flex items-center gap-1 text-gray-300"><span className="w-2 h-2 rounded-full bg-yellow-500"></span>回水</span>
-                        <span className="flex items-center gap-1 text-gray-300"><span className="w-2 h-2 rounded-full bg-cyan-500"></span>出水</span>
+                        <span className="flex items-center gap-1 text-white/80"><span className="w-2 h-2 rounded-full bg-yellow-500"></span>回水</span>
+                        <span className="flex items-center gap-1 text-white/80"><span className="w-2 h-2 rounded-full bg-cyan-500"></span>出水</span>
                     </div>
                     <div className="flex-1 min-h-0">
                         <ResponsiveContainer width="100%" height="100%">
@@ -187,8 +199,8 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
                                         <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
                                     </linearGradient>
                                 </defs>
-                                <XAxis dataKey="time" stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
-                                <YAxis domain={[5, 15]} stroke="#666" fontSize={10} tickLine={false} axisLine={false} width={25}/>
+                                <XAxis dataKey="time" stroke="#FFFFFFCC" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis domain={[5, 15]} stroke="#FFFFFFCC" fontSize={10} tickLine={false} axisLine={false} width={25}/>
                                 <Tooltip contentStyle={{backgroundColor: '#000', border: '1px solid #333'}} itemStyle={{fontSize: '12px'}}/>
                                 <Area type="monotone" dataKey="return" stroke="#eab308" fillOpacity={1} fill="url(#colorReturn)" strokeWidth={2} />
                                 <Area type="monotone" dataKey="supply" stroke="#06b6d4" fillOpacity={1} fill="url(#colorSupply)" strokeWidth={2} />
@@ -201,16 +213,16 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
             {/* 底部小數據列 */}
             <div className="flex justify-between mt-2 pt-2 border-t border-gray-600/30">
                 <div className="text-center">
-                    <p className="text-[10px] text-gray-400">即時功耗</p>
-                    <p className="text-sm font-mono text-white">45.2 <span className="text-[10px]">kW</span></p>
+                    <p className="text-[12px] text-white/80">即時功耗</p>
+                    <p className="text-[16px] font-mono text-white">45.2 <span className="text-[10px]">kW</span></p>
                 </div>
                 <div className="text-center">
-                    <p className="text-[10px] text-gray-400">運轉效率</p>
-                    <p className="text-sm font-mono text-[#2BC3EC]">0.78 <span className="text-[10px]">kW/RT</span></p>
+                    <p className="text-[12px] text-white/80">運轉效率</p>
+                    <p className="text-[16px] font-mono text-[#2BC3EC]">0.78 <span className="text-[10px]">kW/RT</span></p>
                 </div>
                 <div className="text-center">
-                    <p className="text-[10px] text-gray-400">溫差 (ΔT)</p>
-                    <p className="text-sm font-mono text-yellow-400">5.0 <span className="text-[10px]">°C</span></p>
+                    <p className="text-[12px] text-white/80">溫差 (ΔT)</p>
+                    <p className="text-[16px] font-mono text-yellow-400">5.0 <span className="text-[10px]">°C</span></p>
                 </div>
             </div>
         </div>
@@ -221,13 +233,13 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
                     <h3 className="text-[#2BC3EC] font-bold flex items-center gap-2">
                         <Video size={18} /> 安全監控
                     </h3>
-                    <span className="text-[10px] text-gray-400 animate-pulse">LIVE ●</span>
+                    <span className="text-[10px] text-white/80 animate-pulse">LIVE ●</span>
                 </div>
 
                 <div className="flex gap-2 flex-1 h-full min-h-0">
                     
                     {/* 左側：即時影像畫面 (整合 CameraPlayer) */}
-                    <div className="w-3/5 h-full bg-black rounded border border-gray-600/50 relative overflow-hidden flex flex-col">
+                    <div className="w-7/10 h-full bg-black rounded border border-gray-600/50 relative overflow-hidden flex flex-col">
                         {selectedCamera ? (
                             <CameraPlayer 
                                 hlsUrl={selectedCamera.hlsUrl}
@@ -237,7 +249,6 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
                                 isMinimized={false} // 在這個布局中強制展開
                                 isAlarm={selectedCamera.isAlarm} // 如果狀態是警告，開啟紅框閃爍
                                 onLocate={onLocate}
-                                // 移除 onMinimizeToggle 因為這裡我們希望它固定顯示
                             />
                         ) : (
                             // 沒有選中攝影機時的 Placeholder
@@ -251,9 +262,9 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
                     </div>
 
                     {/* 右側：攝像頭列表 (作為控制器) */}
-                    <div className="w-2/5 h-full flex flex-col gap-1 overflow-y-auto pr-1">
+                    <div className="w-3/10 h-full flex flex-col gap-1 overflow-y-auto pr-1">
                         {floorCameras.length === 0 ? (
-                            <div className="text-gray-500 text-xs text-center mt-4">此樓層無攝影機</div>
+                            <div className="text-white/80 text-xs text-center mt-4">此樓層無攝影機</div>
                         ) : (
                             floorCameras.map((cam) => {
                                 // 判斷是否為當前選中的攝影機
@@ -303,4 +314,4 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
     );
 };
 
-export default RightInfoPanel;
+export default memo(RightInfoPanel);

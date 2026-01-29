@@ -64,6 +64,10 @@ interface AppContextType {
   setIsCCTVOn:  React.Dispatch<React.SetStateAction<boolean>>;
   isEACOn: boolean;
   setIsEACOn:  React.Dispatch<React.SetStateAction<boolean>>;
+  isGlobalLoading: boolean
+  setIsGlobalLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  loadingMessage: string;
+  setLoadingMessage: React.Dispatch<React.SetStateAction<string | "">>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -98,6 +102,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const [selectedFragId, setSelectedFragId] = useState<string | null>(null);
   const [selectedDeviceName, setSelectedDeviceName] = useState<string | null>(null);
+
+  const [isGlobalLoading, setIsGlobalLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("處理中...");
 
   const [isHVACOn, setIsHVACOn] = useState<boolean>(false);
   const [isCCTVOn, setIsCCTVOn] = useState<boolean>(false);
@@ -145,7 +152,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       isLoadingUser, // Add isLoadingUser to context value
       showProgressModal, setShowProgressModal, progress, setProgress,
       viewMode, setViewMode, deviceViewMode, setDeviceViewMode, selectedFloor,setSelectedFloor, selectedDevice, setSelectedDevice, selectedFragId, setSelectedFragId, selectedDeviceName, setSelectedDeviceName,
-      isHVACOn, setIsHVACOn, isCCTVOn, setIsCCTVOn, isEACOn, setIsEACOn// Add new states to context value
+      isHVACOn, setIsHVACOn, isCCTVOn, setIsCCTVOn, isEACOn, setIsEACOn,isGlobalLoading,setIsGlobalLoading,loadingMessage,setLoadingMessage// Add new states to context value
     }}>
       {children}
     </AppContext.Provider>

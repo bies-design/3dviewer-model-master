@@ -73,17 +73,17 @@ const KPIFloorTable: React.FC<KPIFloorTableProps> = ({ loadedModelIds,darkMode =
       {/* 表頭標籤 */}
       <div className="grid grid-cols-5 gap-1 mb-2 px-2">
         <div className="flex justify-center">
-          <span className="px-4 py-1 border border-blue-500/50 text-[10px] text-white bg-blue-900/20">KW</span>
+          <span className="px-3 py-1 border border-blue-500/50 text-sm text-white bg-blue-900/20">KW</span>
         </div>
         <div className="flex justify-center">
-          <span className="px-4 py-1 border border-blue-500/50 text-[10px] text-white bg-blue-900/20">TEMP</span>
+          <span className="px-3 py-1 border border-blue-500/50 text-sm text-white bg-blue-900/20">TEMP</span>
         </div>
         <div className="flex justify-center opacity-0">FLOOR</div> {/* 佔位 */}
         <div className="flex justify-center">
-          <span className="px-4 py-1 border border-blue-500/50 text-[10px] text-white bg-blue-900/20">HUMI</span>
+          <span className="px-3 py-1 border border-blue-500/50 text-sm text-white bg-blue-900/20">HUMI</span>
         </div>
         <div className="flex justify-center">
-          <span className="px-4 py-1 border border-blue-500/50 text-[10px] text-white bg-blue-900/20">CO2</span>
+          <span className="px-3 py-1 border border-blue-500/50 text-sm text-white bg-blue-900/20">CO2</span>
         </div>
       </div>
 
@@ -110,7 +110,7 @@ const KPIFloorTable: React.FC<KPIFloorTableProps> = ({ loadedModelIds,darkMode =
 
             {/* FLOOR (中心列) */}
             <div className="flex justify-center relative">
-              <div className="absolute inset-0 bg-blue-500/10 -skew-x-12" />
+              <div className="absolute inset-0 bg-blue-500/30 -skew-x-12" />
               <span className="relative z-10 text-white/80 font-bold text-xs">{item.floor}</span>
             </div>
 
