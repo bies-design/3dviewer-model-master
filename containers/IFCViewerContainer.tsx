@@ -609,7 +609,7 @@ useEffect(() => {
             const overallProgress = ((loadedCount * 100) + modelProgress) / totalModels;
             setProgress(Math.round(overallProgress));
             
-            console.log(`正在載入 ${model.name}: ${modelProgress.toFixed(0)}% (總進度: ${overallProgress.toFixed(0)}%)`);
+            // console.log(`正在載入 ${model.name}: ${modelProgress.toFixed(0)}% (總進度: ${overallProgress.toFixed(0)}%)`);
           });
         } catch (err) {
           console.error(`載入模型失敗: ${model.name}`, err);
@@ -2953,7 +2953,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
       )}
 
       <div className="relative flex-grow flex transition-all duration-300 min-w-0 overflow-hidden">
-        <div className="relative flex-grow min-w-0 h-full">
+        <div className="relative flex-grow min-w-0 h-full overflow-x-scroll">
             {/* <IFCViewerUI
               darkMode={darkMode}
               viewerRef={viewerRef}
@@ -2961,11 +2961,11 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
               viewMode={viewMode}
             /> */}
             {/* Device頁面 */}
-            <div className={viewMode === 'device' ? "absolute w-[81%] h-[84.5%] bottom-10 left-88 right-4 flex gap-2 z-30": "absolute w-full h-full "}>
+            <div className={viewMode === 'device' ? " absolute max-w-[81dvw] h-[84.5dvh] top-25 bottom-10 left-88 right-4 flex gap-2 z-30": "absolute w-full h-full "}>
               {/* 左側 */}
               <div className={viewMode === 'device' ? `h-full flex flex-col gap-2 ${selectedDeviceName ? "w-1/2" : "w-full"}`:""}>
                 {/* 左一 */}
-                <div className={`w-full ${selectedDeviceName? "h-1/3" : "h-1/15"} flex flex-col gap-2 ${viewMode === 'device' ? "":"hidden"}`}>
+                <div className={` w-full min-h-[30px] overflow-auto ${selectedDeviceName? "h-1/3" : "h-1/15"} flex flex-col gap-2 ${viewMode === 'device' ? "":"hidden"}`}>
                   <div className="hud-panel w-full h-full pl-4 flex justify-between items-center ">
                     <p className="font-bold text-white text-lg tracking-wider">
                       {selectedDeviceName ? `${selectedDeviceName} 設備基本資訊` : "請選擇一個設備"} </p>
@@ -2975,29 +2975,33 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   <div className={selectedDeviceName ? "flex gap-2 w-full flex-1" : "hidden"}>
                     {/* 效率流量 */}
                     <div className="w-2/9 h-full flex flex-col gap-2">
-                      <div className="hud-panel relative p-4 flex flex-col items-center justify-center w-full h-1/2">
-                        <p className="text-xl text-white font-semibold absolute top-2 left-3">效率</p>
-                        <p className="text-2xl text-white font-mono mt-4">13.75 <span className="text-sm text-gray-300">kW/RT</span></p>
+                      <div className="hud-panel relative 2xl:p-4  flex flex-col items-center justify-center w-full h-1/2">
+                        <p className="text-md 2xl:text-xl text-white font-semibold absolute top-2 left-3">效率</p>
+                        <p className="text-xl 2xl:text-2xl text-white font-mono mt-[30%]">13.75 <span className="text-sm text-gray-300">kW/RT</span></p>
                       </div>
-                      <div className="hud-panel relative p-4 flex flex-col items-center justify-center w-full h-1/2">
-                        <p className="text-xl text-white font-semibold absolute top-2 left-3">流量</p>
-                        <p className="text-2xl text-white font-mono mt-4">15 <span className="text-sm text-gray-300">CMH</span></p>
+                      <div className="hud-panel relative 2xl:p-4  flex flex-col items-center justify-center w-full h-1/2">
+                        <p className="text-md 2xl:text-xl text-white font-semibold absolute top-2 left-3">流量</p>
+                        <p className="text-xl 2xl:text-2xl text-white font-mono mt-4">15 <span className="text-sm text-gray-300">CMH</span></p>
                       </div>
                     </div>
                     {/* 碳排 */}
-                    <div className="hud-panel p-4 flex flex-col items-center w-2/9 h-full ">
-                      <div className="text-md font-semibold flex text-white h-2/10 w-full justify-center items-center border-b border-gray-600/50 ">
-                        碳排放量<span className=" text-sm ml-1 text-gray-300">(KgCo2)</span></div>
+                    <div className="hud-panel p-2 2xl:p-4 flex flex-col items-center w-2/9 h-full ">
+                      <div className="flex max-[1281px]:flex-col  w-full h-2/10">
+                        <div className="text-md font-semibold text-white w-full ">
+                          碳排放量
+                        </div>
+                        <span className=" text-sm ml-1 text-gray-300">(KgCo2)</span>
+                      </div>
                       <div className="flex flex-col items-center justify-center gap-2 h-8/10">
-                        <p className="text-3xl text-white font-mono font-bold">12,747</p>
-                        <p className="text-gray-300 text-sm">本月累積碳排放量</p>
+                        <p className="text-3xl max-[1281px]:text-xl text-white font-mono font-bold">12,747</p>
+                        <p className="text-gray-300 text-sm">本月累積</p>
                       </div>
                     </div>
                     {/* 其他用電 */}
-                    <div className="hud-panel flex flex-col gap-2 p-4 w-5/9 h-full">
+                    <div className="hud-panel flex flex-col gap-2 p-2 2xl:p-4 w-5/9 h-full">
                       <div className="text-md font-semibold text-white border-b border-gray-600/50 flex items-center">
                         其他用電</div>
-                      <div className="flex-1 grid grid-cols-3 gap-y-4 gap-x-2 content-center">
+                      <div className="flex-1 grid grid-cols-3 gap-y-4 max-[1281px]:gap-y-2 gap-x-2 content-center">
                         <div className="flex flex-col items-center justify-center">
                           <p className="text-xl text-white font-mono">0.5</p>
                           <p className="text-xs text-gray-300">功率因數</p>
@@ -3031,28 +3035,28 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                 {/* 左三 */}
                 <div className={viewMode === 'device' ? `w-full h-1/3 flex gap-2 ${selectedDeviceName ? "" : "hidden"}`:"hidden"}>
                   <div className="hud-panel p-4 flex flex-col w-full h-full">
-                    <div className="text-white text-xl font-medium border-b border-gray-600/50">環境溫度</div>
+                    <div className="text-white text-medium 2xl:text-xl font-medium border-b border-gray-600/50">環境溫度</div>
                     <div className="flex-1 content-center">
-                      <div className="text-4xl text-white text-center">23<span className="text-gray-300 text-[20px]">°C</span></div>
+                      <div className="text-2xl 2xl:text-4xl text-white text-center">23<span className="text-gray-300 text-[20px]">°C</span></div>
                     </div>
                     
                   </div>
                   <div className="hud-panel p-4  w-full h-full">
-                    <div className="text-white text-xl font-medium mb-2 border-b border-gray-600/50">線電壓</div>
-                    <div className="flex justify-between text-xs text-gray-300 mb-1"><span>線電壓1</span> <span>300 V</span></div>
-                    <div className="flex justify-between text-xs text-gray-300 mb-1"><span>線電壓2</span> <span>310 V</span></div>
-                    <div className="flex justify-between text-xs text-gray-300"><span>線電壓3</span> <span>320 V</span></div>
+                    <div className="text-white text-medium 2xl:text-xl font-medium mb-2 border-b border-gray-600/50">線電壓</div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300 mb-1"><span>線電壓1:</span> <span className="self-end">300 V</span></div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300 mb-1"><span>線電壓2:</span> <span className="self-end">310 V</span></div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300"><span>線電壓3:</span> <span className="self-end">320 V</span></div>
                   </div>
                   <div className="hud-panel p-4  w-full h-full">
-                    <div className="text-white text-xl font-medium mb-2 border-b border-gray-600/50">電流</div>
-                    <div className="flex justify-between text-xs text-gray-300 mb-1"><span>電流1</span> <span className="bg-orange-500 text-black px-1 rounded">25 A</span></div>
-                    <div className="flex justify-between text-xs text-gray-300 mb-1"><span>電流2</span> <span>42.0 A</span></div>
-                    <div className="flex justify-between text-xs text-gray-300"><span>電流3</span> <span>51.9 A</span></div>
+                    <div className="text-white text-medium 2xl:text-xl font-medium mb-2 border-b border-gray-600/50">電流</div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300 mb-1"><span>電流1</span> <span className="bg-orange-500 self-end text-black px-1 rounded">25 A</span></div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300 mb-1"><span>電流2</span> <span className="self-end">42.0 A</span></div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300"><span>電流3</span> <span className="self-end">51.9 A</span></div>
                   </div>
                   <div className="hud-panel p-4  w-full h-full">
-                    <div className="text-white text-xl font-medium mb-2 border-b border-gray-600/50">溫度</div>
-                    <div className="flex justify-between text-xs text-gray-300 mb-1"><span>出水溫度</span> <span>23.6°C</span></div>
-                    <div className="flex justify-between text-xs text-gray-300"><span>入水溫度</span> <span>54.6°C</span></div>
+                    <div className="text-white text-medium 2xl:text-xl font-medium mb-2 border-b border-gray-600/50">溫度</div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300 mb-1"><span>出水溫度</span> <span className="self-end">23.6°C</span></div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300"><span>入水溫度</span> <span className="self-end">54.6°C</span></div>
                   </div>
                 </div>
               </div>
@@ -3061,10 +3065,10 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                 {/* 右一 :能耗狀況 & 運行狀況 */}
                 <div className="w-full h-330/1000 flex gap-2">
                   {/* 能耗狀況 (電池圖) */}
-                  <div className="hud-panel w-1/2 h-full flex flex-col items-center px-4 pt-4  gap-2">
+                  <div className="hud-panel w-1/2 h-full flex flex-col items-center px-4 pt-4 pb-2 gap-2">
                     <p className="w-full text-left text-white font-semibold ">能耗狀況</p>
-                    <div className="mt-8">
-                      <div className=" relative w-16 h-32 border-2 border-green-500 rounded-lg p-1 flex flex-col-reverse items-center gap-1 shadow-[0_0_10px_rgba(34,197,94,0.5)]">
+                    <div className="mt-8 h-[60%]">
+                      <div className=" relative w-16 h-full border-2 border-green-500 rounded-lg p-1 flex flex-col-reverse items-center gap-1 shadow-[0_0_10px_rgba(34,197,94,0.5)]">
                           {/* 電池頭 */}
                           <div className="absolute -top-3 w-8 h-2 bg-green-500 rounded-t-sm"></div>
                           <span className="absolute -top-10 text-green-400 font-bold text-xl">C4</span>
@@ -3077,7 +3081,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   <div className="hud-panel w-full h-full flex flex-col items-center relative overflow-hidden p-4">
                     <p className="w-full text-left text-white font-semibold mb-2">運行狀況</p>
                     {/* 液態狀態球 */}
-                    <LiquidFillGauge percent={50}/>
+                    <LiquidFillGauge percent={50} size={200}/>
                   </div>
                 </div>
                 {/* 右二：耗電量 (Bar Chart) */}
@@ -3320,7 +3324,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
 
               {/* 模式切換側邊欄 (位於左側最邊緣) */}
               {/* 這裡佔據 left-0 到 left-20 之間的空間，作為模式切換器 */}
-              <div className={`${isSidebarVisible ? "w-fit h-fit" : "hidden" }  transform -skew-x-[-40deg] absolute -translate-x-1/2 left-[calc(50%-345px)] top-3/100 z-30 gap-1 flex backdrop-blur-md ${
+              <div className={`${isSidebarVisible ? "w-fit h-fit" : "hidden" }  transform -skew-x-[-40deg] absolute -translate-x-1/2 left-[calc(50%-345px)] top-[22px] z-30 gap-1 flex backdrop-blur-md ${
                 darkMode ? "bg-transparent backdrop-blur-2xl border-gray-700" : "bg-white/80 border-gray-200"
               }`}>
                 {/* Global 按鈕 */}
@@ -3379,7 +3383,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                 </Tooltip>
               </div>
               {/* 標題下按鈕 */}
-              <div className={`${(viewMode === 'floor' || viewMode === 'device')? "absolute ":"hidden"} -translate-x-1/2 left-1/2 top-55/1000 z-30 gap-0 flex ${
+              <div className={`${(viewMode === 'floor' || viewMode === 'device')? "absolute ":"hidden"} -translate-x-1/2 left-1/2 top-[50px] z-30 gap-0 flex ${
                 darkMode ? "bg-transparent " : "bg-white/80 border-gray-200"}`}> 
                   {/* Device按鈕 */}
                   <Tooltip content={`設備模式 (Device)`} placement="bottom">
@@ -3505,7 +3509,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                 </Tooltip> */}
               </div>
               {/* 標題右側按鈕 */}
-              <div className={`${isSidebarVisible ? "w-fit h-fit" : "hidden" }  transform -skew-x-[40deg] absolute -translate-x-1/2 left-[calc(50%+260px)] top-3/100 z-30 gap-1 flex backdrop-blur-md ${
+              <div className={`${isSidebarVisible ? "w-fit h-fit" : "hidden" }  transform -skew-x-[40deg] absolute -translate-x-1/2 left-[calc(50%+260px)] top-[22px] z-30 gap-1 flex backdrop-blur-md ${
                 darkMode ? "bg-transparent backdrop-blur-2xl border-gray-700" : "bg-white/80 border-gray-200"
               }`}>
                 <Tooltip content="聚焦(Focus)" placement="bottom">
@@ -3534,11 +3538,12 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                 </>
               )}
               {/* All floors模式面板 */}
-              {viewMode === 'allfloors' && (
+              {viewMode === 'allfloors' && components && (
                 <>
                   <RightSideDataPanelForAllFloor
                       floor={selectedFloor}
                       loadedModelIds={Array.from(fragmentsRef.current?.list.keys() || [])}
+                      components={components}
                       darkMode={darkMode}
                     />
                 </>

@@ -63,7 +63,7 @@ const KPIFloorTable: React.FC<KPIFloorTableProps> = ({ loadedModelIds,darkMode =
     }, [availableFloors]);
 
   return (
-    <div className="flex flex-col w-full p-4 select-none">
+    <div className="flex flex-col w-full p-4 overflow-y-auto">
       {/* 標題與標籤 */}
       <div className="flex items-center gap-2 mb-4">
         <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
@@ -88,7 +88,7 @@ const KPIFloorTable: React.FC<KPIFloorTableProps> = ({ loadedModelIds,darkMode =
       </div>
 
       {/* 資料列容器 */}
-      <div className="flex flex-col gap-0.5 overflow-hidden">
+      <div className="flex flex-col gap-0.5 overflow-y-auto">
         {data.map((item, index) => (
           <div 
             key={item.floor} 

@@ -4,10 +4,13 @@ import React from "react";
 import { Card, Tab, Tabs, ButtonProps, CardProps } from "@heroui/react";
 import { ResponsiveContainer, RadialBarChart, RadialBar, Cell, PolarAngleAxis, Tooltip, BarChart, CartesianGrid, XAxis, YAxis, AreaChart, Area, Bar} from "recharts";
 import KPIFloorTable from "@/components/KPIFloorTable";
+import AllWarnings from "./AllWarnings";
+import * as OBC from "@thatopen/components";
 
 interface RightSideDataPanelForAllFloorProps {
   loadedModelIds: string[];
   floor: string | null;
+  components: OBC.Components;
   darkMode: boolean;
 }
 // 1. 準備圖表數據 (chartData)
@@ -41,21 +44,18 @@ const formatTotal = (value: number) => {
 // 4. 定義顏色變數 (如果你組件外部沒定義 color)
 const color = "primary"; // 或 "success", "warning", "danger", "default"
 
-const last30DaysData = [
-  { day: "12-15", value: 5000 },
-  { day: "12-20", value: 6500 },
-  { day: "12-25", value: 4000 },
-  { day: "12-30", value: 5500 },
-  { day: "01-04", value: 4500 },
-  { day: "01-09", value: 8500 },
-  { day: "01-14", value: 3000 },
-];
-
-const RightSideDataPanelForAllFloor: React.FC<RightSideDataPanelForAllFloorProps> = ({ loadedModelIds, floor, darkMode }) => {
+const RightSideDataPanelForAllFloor: React.FC<RightSideDataPanelForAllFloorProps> = ({ loadedModelIds, components,floor, darkMode }) => {
   return (
-    <div className="absolute hud-panel right-4 top-25 bottom-10 z-10 flex flex-col gap-4 min-w-[350px] min-h-[600px] w-[20%] h-[85%] pointer-events-none">
-      <KPIFloorTable loadedModelIds={loadedModelIds}/>
-    </div>
+    <>
+      <div className="absolute hud-panel right-4 top-25 bottom-10 z-10 flex flex-col gap-4 min-w-[350px]  w-[20%] h-[85%]">
+        <KPIFloorTable loadedModelIds={loadedModelIds}/>
+      </div>
+      <div className="absolute hud-panel left-4 top-25 bottom-10 z-10 flex flex-col gap-4 min-w-[350px]  w-[25%] h-[85%]">
+        <AllWarnings 
+          components={components}/>
+      </div>
+    </>
+
   );
 }
   

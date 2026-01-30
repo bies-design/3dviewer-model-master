@@ -5,19 +5,26 @@ interface LiquidFillGaugeProps {
     title?: string;       // 例如 "預警"
     subTitle?: string;    // 例如 "運行狀況"
     darkMode?: boolean;
+    size: number;
 }
 
 const LiquidFillGauge: React.FC<LiquidFillGaugeProps> = ({ 
     percent, 
     title = "預警", 
-    subTitle = "運行狀況" 
+    subTitle = "運行狀況" ,
+    size,
     }) => {
     // 計算波浪高度位移 (Y 軸)
     // 100% 時 Y 在底部，0% 時 Y 在頂部
     const translateY = 50-percent/2;
 
     return (
-        <div className="relative w-64 h-64 rounded-sm">
+        <div className="relative rounded-sm"
+            style={{
+                width:`${size}px`,
+                height:`${size}px`,
+            }}
+            >
 
         {/* 3. 核心圓球容器 */}
         <div className="relative w-full h-full flex items-center justify-center">

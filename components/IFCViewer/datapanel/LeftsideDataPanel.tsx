@@ -125,16 +125,16 @@ const LeftsideDataPanel: React.FC<LeftsideDataPanelProps> = ({ darkMode }) => {
   }, [filteredRankingData]);
 
   return (
-    <div className="absolute left-4 top-25 bottom-10 min-w-[300px] min-h-[600px] w-[20%] h-[85%] z-10 flex flex-col gap-4 pointer-events-none group">      
+    <div className="absolute left-4 top-25 bottom-10 min-w-[270px] w-[20%] h-[85%] z-10 flex flex-col gap-4 pointer-events-none group">      
         {/* 上段: 即時and本日用電 (保持不變) */}
         <div className="relative hud-panel h-[12%] flex gap-2 items-center justify-center"> 
           <div className="flex flex-col items-center px-4 border-r border-white/10 relative">
-            <span className="text-xl uppercase tracking-[0.7em]"><span className="text-orange-400 font-semibold">即時</span>用電</span>
-            <span className="text-xl font-bold text-[#84ebf8]">10 <small className="text-8 font-normal">kWh</small></span>
+            <span className="text-md 2xl:text-xl uppercase tracking-wide"><span className="text-orange-400 font-semibold">即時</span>用電</span>
+            <span className="text-md 2xl:text-xl font-bold text-[#84ebf8]">10 <small className="text-8 font-normal">kWh</small></span>
           </div>
           <div className="flex flex-col items-center px-4">
-            <span className="text-xl uppercase tracking-[0.7em]"><span className="text-orange-400 font-semibold">本日</span>用電</span>
-            <span className="text-xl font-bold text-[#84ebf8]">1,010 <small className="text-8 font-normal">kWh</small></span>
+            <span className="text-md 2xl:text-xl uppercase tracking-wide"><span className="text-orange-400 font-semibold">本日</span>用電</span>
+            <span className="text-md 2xl:text-xl font-bold text-[#84ebf8]">1,010 <small className="text-8 font-normal">kWh</small></span>
           </div>
         </div> 
 
@@ -143,13 +143,13 @@ const LeftsideDataPanel: React.FC<LeftsideDataPanelProps> = ({ darkMode }) => {
         
         {/* 標題與選單區塊 */}
         <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-bold flex items-center gap-2 text-white">
+            <h3 className="text-md 2xl:text-xl font-bold flex items-center gap-2 text-white">
             <span className="w-1 h-4 bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)] rounded-full"></span>
             區域用電量
             </h3>
 
             {/* 下拉選單群組 */}
-            <div className="flex gap-1">
+            <div className="flex gap-1 max-xl:flex-col">
                 {/* 年份選單 */}
                 <select 
                     value={selectedYear} 
@@ -210,7 +210,7 @@ const LeftsideDataPanel: React.FC<LeftsideDataPanelProps> = ({ darkMode }) => {
       {/* 下段：圓餅圖 (保持不變) */}
       {/* 下段：圓餅圖 (依照篩選資料連動) */}
       <Card className={`rounded-none hud-panel flex-1 p-4 pointer-events-auto relative overflow-hidden ${darkMode ? 'bg-transparent' : 'bg-white/60'}`}>
-        <h3 className="text-xl font-bold mb-2 flex items-center gap-2 text-white">
+        <h3 className="text-md 2xl:text-xl font-bold mb-2 flex items-center gap-2 text-white">
           <span className="w-1 h-4 bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)] rounded-full"></span>
           {selectedYear}年 {(selectedMonth === "") ? "" : `${selectedMonth}月`} 全館電能平衡圖
         </h3>
@@ -230,8 +230,8 @@ const LeftsideDataPanel: React.FC<LeftsideDataPanelProps> = ({ darkMode }) => {
                       data={filteredRankingData} // 直接傳入篩選後的資料
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
+                      innerRadius="60%"
+                      outerRadius="80%"
                       paddingAngle={2}
                       dataKey="value"
                     >
