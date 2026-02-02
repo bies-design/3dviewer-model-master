@@ -39,11 +39,11 @@ const RightsideDataPanel: React.FC<RightsideDataPanelProps> = ({ darkMode }) => 
       {/*上段: 本月and本年用電 */}
       <div className="relative hud-panel h-[12%] flex gap-2 items-center justify-center">
         <div className="flex flex-col items-center px-4 border-r border-white/10">
-          <span className="text-md 2xl:text-xl uppercase xl:tracking-wide"><span className="text-orange-400 font-semibold">本月</span>用電</span>
+          <span className="text-md 2xl:text-xl uppercase min-[1734px]:tracking-[0.7em]"><span className="text-orange-400 font-semibold">本月</span>用電</span>
           <span className="text-md 2xl:text-xl font-bold text-[#84ebf8]">11,121 <small className="text-8 font-normal">kWh</small></span>
         </div>
         <div className="flex flex-col items-center px-4">
-          <span className="text-md 2xl:text-xl uppercase xl:tracking-wide"><span className="text-orange-400 font-semibold">本年</span>用電</span>
+          <span className="text-md 2xl:text-xl uppercase min-[1734px]:tracking-[0.7em]"><span className="text-orange-400 font-semibold">本年</span>用電</span>
           <span className="text-md 2xl:text-xl font-bold text-[#84ebf8]">111,121 <small className="text-8 font-normal">kWh</small></span>
         </div>
       </div>
@@ -67,11 +67,11 @@ const RightsideDataPanel: React.FC<RightsideDataPanelProps> = ({ darkMode }) => 
 
       {/* 中下段：能耗指標 */}
       <Card className={`rounded-none hud-panel h-[20%] p-4 pointer-events-auto relative overflow-hidden ${darkMode ? 'bg-transparent' : 'bg-white/60'}`}>
-        <h3 className="text-md 2xl:text-xl font-bold mb-4 flex items-center gap-2 text-white">
+        <h3 className="text-md 2xl:text-xl font-bold mb-[0.5dvh] flex items-center gap-2 text-white">
           <span className="w-1 h-4 bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)] rounded-full"></span>
           能耗指標
         </h3>
-        <div className="flex flex-col gap-4 overflow-y-auto">
+        <div className="flex flex-col gap-2 overflow-y-auto">
           <div className="flex justify-between items-end border-b border-white/5 pb-2">
             <span className="text-sm 2xl:text-md">本月單位面積能耗</span>
             <span className="text-md font-bold text-[#84ebf8]">174.647 <small className="text-8 font-normal text-cyan-400">kWh/m²</small></span>

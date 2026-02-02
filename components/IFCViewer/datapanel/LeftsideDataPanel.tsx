@@ -8,6 +8,9 @@ interface LeftsideDataPanelProps {
   darkMode: boolean;
 }
 
+const usage = [
+  {instant: 10, daily: 1010, monthly: 11121, yearly: 111121},
+];
 const pieData = [
   { name: "製程系統(含電熱製程)", value: 69.6, color: "#ef4444" },
   { name: "照明系統", value: 20.2, color: "#eab308" },
@@ -129,11 +132,11 @@ const LeftsideDataPanel: React.FC<LeftsideDataPanelProps> = ({ darkMode }) => {
         {/* 上段: 即時and本日用電 (保持不變) */}
         <div className="relative hud-panel h-[12%] flex gap-2 items-center justify-center"> 
           <div className="flex flex-col items-center px-4 border-r border-white/10 relative">
-            <span className="text-md 2xl:text-xl uppercase tracking-wide"><span className="text-orange-400 font-semibold">即時</span>用電</span>
+            <span className="text-md 2xl:text-xl uppercase min-[1734px]:tracking-[0.7em]"><span className="text-orange-400 font-semibold">即時</span>用電</span>
             <span className="text-md 2xl:text-xl font-bold text-[#84ebf8]">10 <small className="text-8 font-normal">kWh</small></span>
           </div>
           <div className="flex flex-col items-center px-4">
-            <span className="text-md 2xl:text-xl uppercase tracking-wide"><span className="text-orange-400 font-semibold">本日</span>用電</span>
+            <span className="text-md 2xl:text-xl uppercase min-[1734px]:tracking-[0.7em]"><span className="text-orange-400 font-semibold">本日</span>用電</span>
             <span className="text-md 2xl:text-xl font-bold text-[#84ebf8]">1,010 <small className="text-8 font-normal">kWh</small></span>
           </div>
         </div> 

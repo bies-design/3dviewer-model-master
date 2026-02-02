@@ -2953,7 +2953,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
       )}
 
       <div className="relative flex-grow flex transition-all duration-300 min-w-0 overflow-hidden">
-        <div className="relative flex-grow min-w-0 h-full overflow-x-scroll">
+        <div className="relative flex-grow min-w-0 h-full overflow-hidden">
             {/* <IFCViewerUI
               darkMode={darkMode}
               viewerRef={viewerRef}
@@ -2965,7 +2965,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
               {/* 左側 */}
               <div className={viewMode === 'device' ? `h-full flex flex-col gap-2 ${selectedDeviceName ? "w-1/2" : "w-full"}`:""}>
                 {/* 左一 */}
-                <div className={` w-full min-h-[30px] overflow-auto ${selectedDeviceName? "h-1/3" : "h-1/15"} flex flex-col gap-2 ${viewMode === 'device' ? "":"hidden"}`}>
+                <div className={`w-full min-h-[30px] ${selectedDeviceName? "h-1/3 overflow-auto" : "h-1/15"} flex flex-col gap-2 ${viewMode === 'device' ? "":"hidden"}`}>
                   <div className="hud-panel w-full h-full pl-4 flex justify-between items-center ">
                     <p className="font-bold text-white text-lg tracking-wider">
                       {selectedDeviceName ? `${selectedDeviceName} 設備基本資訊` : "請選擇一個設備"} </p>
@@ -3031,7 +3031,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   </div>
                 </div>
                 {/* 左二 3D viewer */}
-                <div ref={viewerRef} className={viewMode === 'device' ? ` w-full hud-panel ${selectedDeviceName ? "h-1/3":"h-full"} ` : "absolute top-0 w-dhw h-dvh"}/>
+                <div ref={viewerRef} className={viewMode === 'device' ? ` w-full hud-panel ${selectedDeviceName ? " h-1/3 overflow-hidden":"h-full"} ` : "absolute top-0 w-dhw h-dvh"}/>
                 {/* 左三 */}
                 <div className={viewMode === 'device' ? `w-full h-1/3 flex gap-2 ${selectedDeviceName ? "" : "hidden"}`:"hidden"}>
                   <div className="hud-panel p-4 flex flex-col w-full h-full">
@@ -3063,7 +3063,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
               {/* 右側 */}
               <div className={` ${viewMode === 'device' ? `${selectedDeviceName ? "w-1/2 h-full flex flex-col gap-2": "hidden"}`:"hidden"} `}>
                 {/* 右一 :能耗狀況 & 運行狀況 */}
-                <div className="w-full h-330/1000 flex gap-2">
+                <div className="w-full h-1/3 overflow-hidden flex gap-2">
                   {/* 能耗狀況 (電池圖) */}
                   <div className="hud-panel w-1/2 h-full flex flex-col items-center px-4 pt-4 pb-2 gap-2">
                     <p className="w-full text-left text-white font-semibold ">能耗狀況</p>
@@ -3085,7 +3085,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   </div>
                 </div>
                 {/* 右二：耗電量 (Bar Chart) */}
-                <div className="hud-panel w-full h-338/1000 p-4 flex flex-col">
+                <div className="hud-panel w-full h-1/3 p-4 flex flex-col">
                   <p className="text-white font-semibold mb-2">耗電量 <span className="text-xs text-white">(kWh)</span></p>
                   <div className="flex-1 w-full min-h-0">
                     {viewMode === 'device' && 
@@ -3112,7 +3112,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   </div>
                 </div>
                 {/* 右三：環境溫度 & 溫度 (Line Charts)*/}
-                <div className="w-full h-328/1000 flex gap-2">
+                <div className="w-full h-1/3 flex gap-2">
                   {/* 環境溫度 */}
                   <div className="hud-panel w-full h-full p-3 flex flex-col">
                     <div className="flex justify-between items-center mb-1">

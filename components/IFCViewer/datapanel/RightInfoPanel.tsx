@@ -164,7 +164,7 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
         <div className="w-full h-[40%] p-2 flex flex-col">
             <div className="flex justify-between items-center mb-2 border-b border-gray-600/30 pb-2">
                 <h3 className="text-[#2BC3EC] font-bold flex items-center gap-2">
-                    <Activity size={18} /> HVAC 冰水系統
+                    <Activity size={18} /> HVAC 
                 </h3>
                 <span className="text-xs text-green-400 border border-green-500/50 px-2 rounded bg-green-900/20">運行最佳化</span>
             </div>

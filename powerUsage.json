@@ -1,0 +1,84 @@
+{
+    "usage":{
+        "instant": 10,
+        "daily": 1010,
+        "monthly":11121,
+        "yearly":111121
+    },
+    "demand":{
+        "instant":430.157,
+        "monthly_Max":436.526
+    },
+    "indicators": {
+        "per_unit_area": 174.647,
+        "per_capita": 698.587
+    },
+    "regional":[
+        {
+            "name": "南港廠生產中心",
+            "value": 1244959.0,
+            "timestamp": "2025-12-05T07:44:53.437+00:00"
+        },
+        {
+            "name": "新竹廠生產中心",
+            "value": 802703.5,
+            "timestamp": "2025-12-08T16:05:44.555+00:00"
+        },
+        {
+            "name": "台中營運處",
+            "value": 45678.9,
+            "timestamp": "2026-01-30T13:30:00.000+00:00"
+        }
+    ],
+    "trends":{
+        "yearly": [
+            { "month": "1月", "value": 100000 },
+            { "month": "2月", "value": 115000 },
+            { "month": "3月", "value": 130000 },
+            { "month": "4月", "value": 150000 },
+            { "month": "5月", "value": 220000 },
+            { "month": "6月", "value": 270000 },
+            { "month": "7月", "value": 120000 },
+            { "month": "8月", "value": 240000 },
+            { "month": "9月", "value": 230000 },
+            { "month": "10月", "value": 180000 },
+            { "month": "11月", "value": 160000 },
+            { "month": "12月", "value": 150000 }
+        ],
+        "last30days":[
+            { "value": 5120, "timeStamps": "2026-01-01T00:00:00.000Z" },
+            { "value": 5800, "timeStamps": "2026-01-02T00:00:00.000Z" },
+            { "value": 6200, "timeStamps": "2026-01-03T00:00:00.000Z" },
+            { "value": 4800, "timeStamps": "2026-01-04T00:00:00.000Z" },
+            { "value": 5500, "timeStamps": "2026-01-05T00:00:00.000Z" },
+            { "value": 5900, "timeStamps": "2026-01-06T00:00:00.000Z" },
+            { "value": 6300, "timeStamps": "2026-01-07T00:00:00.000Z" },
+            { "value": 7100, "timeStamps": "2026-01-08T00:00:00.000Z" },
+            { "value": 8500, "timeStamps": "2026-01-09T00:00:00.000Z" },
+            { "value": 7800, "timeStamps": "2026-01-10T00:00:00.000Z" },
+            { "value": 5200, "timeStamps": "2026-01-11T00:00:00.000Z" },
+            { "value": 4900, "timeStamps": "2026-01-12T00:00:00.000Z" },
+            { "value": 5400, "timeStamps": "2026-01-13T00:00:00.000Z" },
+            { "value": 3100, "timeStamps": "2026-01-14T00:00:00.000Z" },
+            { "value": 5050, "timeStamps": "2026-01-15T00:00:00.000Z" },
+            { "value": 5300, "timeStamps": "2026-01-16T00:00:00.000Z" },
+            { "value": 6100, "timeStamps": "2026-01-17T00:00:00.000Z" },
+            { "value": 6450, "timeStamps": "2026-01-18T00:00:00.000Z" },
+            { "value": 5800, "timeStamps": "2026-01-19T00:00:00.000Z" },
+            { "value": 6600, "timeStamps": "2026-01-20T00:00:00.000Z" },
+            { "value": 7200, "timeStamps": "2026-01-21T00:00:00.000Z" },
+            { "value": 6900, "timeStamps": "2026-01-22T00:00:00.000Z" },
+            { "value": 5400, "timeStamps": "2026-01-23T00:00:00.000Z" },
+            { "value": 4700, "timeStamps": "2026-01-24T00:00:00.000Z" },
+            { "value": 4100, "timeStamps": "2026-01-25T00:00:00.000Z" },
+            { "value": 5600, "timeStamps": "2026-01-26T00:00:00.000Z" },
+            { "value": 6000, "timeStamps": "2026-01-27T00:00:00.000Z" },
+            { "value": 6800, "timeStamps": "2026-01-28T00:00:00.000Z" },
+            { "value": 7500, "timeStamps": "2026-01-29T00:00:00.000Z" },
+            { "value": 3500, "timeStamps": "2026-01-30T00:00:00.000Z" }
+        ]
+    },
+    "kpi":[
+        {"floor":1,"KW":3.56,"TEMP":24.9,"HUMI":55,"CO2":6560}
+    ]
+}

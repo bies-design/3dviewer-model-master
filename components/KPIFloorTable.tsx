@@ -67,7 +67,7 @@ const KPIFloorTable: React.FC<KPIFloorTableProps> = ({ loadedModelIds,darkMode =
       {/* 標題與標籤 */}
       <div className="flex items-center gap-2 mb-4">
         <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-        <h3 className="text-white text-lg font-bold">KPI All Floor</h3>
+        <h3 className="text-white text-lg font-bold">樓層KPI</h3>
       </div>
 
       {/* 表頭標籤 */}
