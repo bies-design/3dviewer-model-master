@@ -3031,7 +3031,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   </div>
                 </div>
                 {/* 左二 3D viewer */}
-                <div ref={viewerRef} className={viewMode === 'device' ? ` w-full hud-panel ${selectedDeviceName ? " h-1/3 overflow-hidden":"h-full"} ` : "absolute top-0 w-dhw h-dvh"}/>
+                <div ref={viewerRef} className={viewMode === 'device' ? ` w-full hud-panel ${selectedDeviceName ? " h-1/3 overflow-hidden":"h-14/15"} ` : "absolute top-0 w-dhw h-dvh"}/>
                 {/* 左三 */}
                 <div className={viewMode === 'device' ? `w-full h-1/3 flex gap-2 ${selectedDeviceName ? "" : "hidden"}`:"hidden"}>
                   <div className="hud-panel p-4 flex flex-col w-full h-full">
