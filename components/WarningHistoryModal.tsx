@@ -24,24 +24,6 @@ interface WarningLog {
     stage: string;
 }
 
-// // 模擬資料 (依照您的圖片內容)
-// const mockData: WarningLog[] = [
-//     {
-//         id: '1',
-//         status: '未處理',
-//         time: '2025-07-10 14:30:19',
-//         device: '新竹廠生產中心--一樓照明(1L)',
-//         cause: '一樓照明(1L) 有功功率1 告警(25.30)/預警(25.30);'
-//     },
-//     {
-//         id: '2',
-//         status: '未處理',
-//         time: '2025-07-14 08:13:16',
-//         device: '新竹廠生產中心--一樓照明(1L)',
-//         cause: '一樓照明(1L) 有功功率1 告警(49.50)/預警(49.50);'
-//     },
-//   // 您可以再增加更多測試資料...
-// ];
 
 interface Props {
     componentsRef: React.MutableRefObject<OBC.Components | null>;

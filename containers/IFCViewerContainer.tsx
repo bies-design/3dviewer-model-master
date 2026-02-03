@@ -28,7 +28,7 @@ import { ThemeSwitch } from "@/components/theme-switch";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import Link from "next/link";
 import { LogIn, LogOut, User as UserIcon, Pause, Play, Download, Menu, Undo2, Layers, Globe, Layers2, TriangleAlert, ChevronRight, BookAlert, Box, AirVent, Cctv, DoorClosedLocked, Focus } from "lucide-react";
-import { Tooltip,Avatar } from "@heroui/react";
+import { Tooltip,Avatar,Switch } from "@heroui/react";
 import DescriptionPanel from "@/components/IFCViewer/DescriptionPanel";
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
@@ -3387,7 +3387,26 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                 darkMode ? "bg-transparent " : "bg-white/80 border-gray-200"}`}> 
                   {/* Device按鈕 */}
                   <Tooltip content={`設備模式 (Device)`} placement="bottom">
-                    <button
+                    <Switch
+                      isSelected={viewMode === "device"}
+                      onValueChange={(isSelected)=>{
+                        if (isSelected) {
+                          handleSwitchViewMode("device");
+                        } else {
+                          handleSwitchViewMode("floor");
+                        }
+                      }}  
+                      color="success"
+                      size="sm"
+                      classNames={{
+                        wrapper: `bg-transparent border border-gray-500 `,
+                        thumb: `bg-white`,
+                      }}
+                      className={`px-2 border-l-1 border-r-1 border-[#2EC2EA]`}
+                    >
+                      <Box size={20} className={`${viewMode === "device" ? "text-white" : "text-gray-500"}`}/>
+                    </Switch>
+                    {/* <button
                       onClick={() => {
                         if(viewMode === 'device') {
                           handleSwitchViewMode('floor');
@@ -3401,8 +3420,8 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                           : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
                       }`}
                     >
-                      <Box size={20} className=""/>
-                    </button>
+                      
+                    </button> */}
                   </Tooltip>
                   {/* hvac按鈕 */}
                   <Tooltip content={selectedFloor ? "顯示暖通空調 (HVAC)" : `請先選擇一個樓層`} placement="bottom">
@@ -3483,7 +3502,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                           }
                         }
                       }}
-                      className={`px-9 py-1 transition-all duration-200  ${
+                      className={`px-9 py-1 transition-all duration-200 border-r-1 border-[#2EC2EA] ${
                         isEACOn
                           ? "bg-[#2EC2EA] text-white scale-110"
                           : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
