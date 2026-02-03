@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Search, Loader2, ChevronRight, X } from "lucide-react";
 import * as OBC from "@thatopen/components";
 import * as OBCF from "@thatopen/components-front";
+import * as THREE from "three";
 import { useAppContext } from "@/contexts/AppContext";
 import { Select ,SelectItem} from "@heroui/react";
 
@@ -237,6 +238,49 @@ useEffect(() => {
     return () => clearTimeout(handler);
 }, [searchText]);
 
+useEffect(() => {
+    const highlighter = highlighterRef.current;
+    if (!highlighter) return;
+
+    // 檢查是否已經設定過 'hover' 樣式
+    if (!highlighter.styles.has('hover')) {
+        
+        // 根據官方文件，styles 是一個 DataMap
+        // 我們需要設定名稱 ('hover') 和材質定義
+        // 如果要設為 null (不著色只選取) 可以傳 null，但我們要自定義顏色
+        
+        highlighter.styles.set('hover', {
+            color: new THREE.Color(0x00FFFF), // 金黃色
+            opacity: 1,
+            transparent: false,
+            depthTest: false, // 讓它能透過牆壁被看到
+            renderedFaces: 1,
+        });
+
+        console.log("✅ 'hover' style registered successfully via styles.set()");
+    }
+}, [highlighterRef]);
+
+//mouse enter then highlight the corresponding device(3D Object)
+const handleMouseEnter = async (device: TResultItem) => {
+    const highlighter = highlighterRef.current;
+    if (!highlighter) return;
+
+    // 建構選取集
+    const selection = { [device.fragmentId]: new Set([device.expressID]) };
+    
+    // 使用 'hover' 這個名稱來 highlight，避免影響 'select'
+    //remove previous 交給handlemouseleave
+    await highlighter.highlightByID('hover', selection, false, true);
+};
+//mouse leave then clear the highlighted device
+const handleMouseLeave = async () => {
+    const highlighter = highlighterRef.current;
+    if (!highlighter) return;
+
+    // 清除 'hover' 樣式，但保留 'select'
+    await highlighter.clear('hover');
+};
 // 現在這裡只需要單純更新 Context，剩下的交給上面的 useEffect
 const onSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
@@ -526,6 +570,8 @@ return (
                                             <li
                                                 key={device.id}
                                                 onClick={() => handleDeviceClick(device)}
+                                                onMouseEnter={() => handleMouseEnter(device)}
+                                                onMouseLeave={() => handleMouseLeave()}
                                                 className={`p-3 rounded cursor-pointer transition-colors text-sm ${
                                                     darkMode ? "bg-gray-700/50 hover:bg-gray-600" : "bg-gray-200/50 hover:bg-gray-300"
                                                 }`}
