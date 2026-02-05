@@ -1,42 +1,62 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import * as OBC from "@thatopen/components";
 import * as OBCF from "@thatopen/components-front";
 import * as THREE from "three";
 import * as FRAGS from "@thatopen/fragments";
-import { ThemeSwitch } from "@/components/theme-switch";
 import { useAppContext } from "@/contexts/AppContext";
-import { PerspectiveCamera, OrthographicCamera, Color, Mesh, MeshLambertMaterial, DoubleSide, EquirectangularReflectionMapping, Scene } from "three";
+import { PerspectiveCamera, OrthographicCamera, Mesh, MeshLambertMaterial, DoubleSide, EquirectangularReflectionMapping, Scene, Color } from "three";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
-import Image from "next/image";
-import { Avatar } from "@heroui/react";
-import UserPanel from "@/components/IFCViewer/UserPanel";
-import { LanguageSwitch } from "@/components/LanguageSwitch";
-import { signOut } from "next-auth/react";
+import { ArrowLeft, Search, ArrowRight, BookAlert } from "lucide-react";
 import MobileActionButtons from "@/components/IFCViewer/MobileActionButtons";
 import LoadingModal from "@/components/IFCViewer/LoadingModal";
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
-import MobileSidePanelToggle from "@/components/IFCViewer/MobileSidePanelToggle";
-import IFCInfoPanel from "@/components/IFCViewer/InfoPanel";
 import HomePanel, { HomePanelRef } from "@/components/IFCViewer/HomePanel";
 import FloorPlan from "@/components/IFCViewer/FloorPlan";
 import AssetsPanel from "@/components/IFCViewer/AssetsPanel";
-import ShadowScenePanel from "@/components/IFCViewer/ShadowScenePanel";
 import MobileSearchPanel from "@/components/IFCViewer/MobileSearchPanel";
+import Viewpoints, { StoredViewpoint } from "@/components/IFCViewer/Viewpoints";
+import TopsideDataPanel from "@/components/IFCViewer/datapanel/TopsideDataPanel";
+import QRScannerModal from "@/components/IFCViewer/QRScannerModal";
 
 type ItemProps = Record<string, any>;
 type PsetDict = Record<string, Record<string, any>>;
 
+const extractFloorFromModelId = (modelId: string): string | null => {
+  try {
+    let tempId = modelId.replace('.ifc.frag', '');
+    if (tempId.endsWith('_')) tempId = tempId.slice(0, -1);
+    const parts = tempId.split('_');
+    return parts[parts.length - 1];
+  } catch (e) {
+    return null;
+  }
+};
+
 const MobileViewerContainer = () => {
-  const { uploadedModels, setUploadedModels, viewerApi, darkMode, toggleTheme, user, setUser, isLoggedIn, setIsLoggedIn, setToast } = useAppContext();
+  const { 
+    selectedDevice, setSelectedDevice, selectedFragId, setSelectedFragId, selectedDeviceName, setSelectedDeviceName, 
+    isHVACOn, setIsHVACOn, isCCTVOn, setIsCCTVOn, isEACOn, setIsEACOn, 
+    isGlobalLoading, setIsGlobalLoading, loadingMessage, setLoadingMessage, 
+    viewMode, setViewMode, selectedFloor, setSelectedFloor, 
+    uploadedModels, setUploadedModels, viewerApi, darkMode, toggleTheme, user, setUser, isLoggedIn, setIsLoggedIn, setToast 
+  } = useAppContext();
+
   const viewerRef = useRef<HTMLDivElement>(null);
   const componentsRef = useRef<OBC.Components | null>(null);
   const fragmentsRef = useRef<OBC.FragmentsManager | null>(null);
   const worldRef = useRef<OBC.World | null>(null);
   const cameraRef = useRef<OBC.OrthoPerspectiveCamera | null>(null);
   const searchElementRef = useRef<HomePanelRef>(null);
+  const outlinerRef = useRef<OBCF.Outliner | null>(null);
+  const markerRef = useRef<OBCF.Marker | null>(null);
+  const boxerRef = useRef<OBC.BoundingBoxer | null>(null); 
+  const viewpointsRef = useRef<OBC.Viewpoints | null>(null);
+
+  const globalCenterRef = useRef<THREE.Vector3 | null>(null);
+  const globalBox3Ref = useRef<THREE.Box3 | null>(null);
 
   const [isUserPanelOpen, setIsUserPanelOpen] = useState(false);
   const [components, setComponents] = useState<OBC.Components | null>(null);
@@ -49,16 +69,28 @@ const MobileViewerContainer = () => {
   const [selectedPsets, setSelectedPsets] = useState<PsetDict>({});
   const [rawPsets, setRawPsets] = useState<any[]>([]);
   const [qrCodeData, setQrCodeData] = useState<{ url: string; name: string; modelId: string; expressId: number }[]>([]);
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  
+  const [elementSearchTerm, setElementSearchTerm] = useState("");
+  const [issueIdSearchTerm, setIssueIdSearchTerm] = useState("");
+  const [SearchResultMode, setSearchResultMode] = useState(false);
+  const [storedViews, setStoredViews] = useState<StoredViewpoint[]>([]);
+  const [currentViewpoint, setCurrentViewpoint] = useState<OBC.Viewpoint | null>(null);
+  
+  // QR & Repair Menu State
+  const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
+  const [showRepairButton, setShowRepairButton] = useState(false);
 
-  // States and Refs for tools from IFCViewerContainer
   const clipperRef = useRef<OBC.Clipper | null>(null);
   const measurerRef = useRef<OBCF.LengthMeasurement | null>(null);
   const areaMeasurerRef = useRef<OBCF.AreaMeasurement | null>(null);
   const highlighterRef = useRef<OBCF.Highlighter | null>(null);
-  const restListener = useRef<(() => Promise<void>) | null>(null);
   const isAddingToGroupRef = useRef(false);
   const activeAddGroupIdRef = useRef<string | null>(null);
   const activeToolRef = useRef<"clipper" | "length" | "area" | "multi-select" | "search" | null>(null);
+  const viewModeRef = useRef(viewMode);
+  const setViewModeRef = useRef(setViewMode);
+  const setSelectedFloorRef = useRef(setSelectedFloor);
 
   const [activeTool, setActiveTool] = useState<"clipper" | "length" | "area" | "multi-select" | "search" | null>(null);
   const [isGhost, setIsGhost] = useState(false);
@@ -71,6 +103,7 @@ const MobileViewerContainer = () => {
   const [areaMode, setAreaMode] = useState<"free" | "square">("free");
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [activeSearchMode, setActiveSearchMode] = useState<"element" | "issue" | null>("element");
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAddingToGroup, setIsAddingToGroup] = useState(false);
@@ -83,1303 +116,796 @@ const MobileViewerContainer = () => {
     return null;
   });
   const [r2HistoryRefreshCounter, setR2HistoryRefreshCounter] = useState(0);
-  const [hasAutoLoadedModels, setHasAutoLoadedModels] = useState(true );
-
-  useEffect(() => {
-    isAddingToGroupRef.current = isAddingToGroup;
-    activeAddGroupIdRef.current = activeAddGroupId;
-  }, [isAddingToGroup, activeAddGroupId]);
-
-  useEffect(() => {
-    activeToolRef.current = activeTool;
-  }, [activeTool]);
-
-  // States for Side Panel
-  type PanelType = 'home' | 'search' | 'floor' | 'assets';
-  const [selectedSidePanel, setSelectedSidePanel] = useState<PanelType>('home');
+  
+  const [hasAutoLoadedModels, setHasAutoLoadedModels] = useState(false);
+  const [isViewerReady, setIsViewerReady] = useState(false); 
+  const [selectedSidePanel, setSelectedSidePanel] = useState<'home' | 'search' | 'floor' | 'assets'>('home');
   const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
-  const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
-  const startPosition = useRef<{ x: number; y: number } | null>(null);
 
+  useEffect(() => { isAddingToGroupRef.current = isAddingToGroup; activeAddGroupIdRef.current = activeAddGroupId; }, [isAddingToGroup, activeAddGroupId]);
+  useEffect(() => { activeToolRef.current = activeTool; }, [activeTool]);
+  useEffect(() => { viewModeRef.current = viewMode; }, [viewMode]); 
+
+  // --- Helper Functions ---
+  const loadCategoriesFromAllModels = async () => {
+    if (!fragmentsRef.current) return;
+    const allCats: Set<string> = new Set();
+    for (const model of fragmentsRef.current.list.values()) {
+      const cats = await model.getItemsOfCategories([/.*/]);
+      Object.keys(cats).forEach((c) => allCats.add(c));
+    }
+    setCategories(Array.from(allCats).sort());
+  };
+
+  const getAllCenterAndBox3 = async () => {
+    const boxer = boxerRef.current;
+    const fragments = fragmentsRef.current;
+
+    if(!boxer || !fragments) {
+        console.warn("Boxer or Fragments not ready");
+        return;
+    }
+
+    const overallBox = new THREE.Box3();
+    overallBox.makeEmpty();
+    let foundGeometry = false;
+
+    try {
+        for (const [, model] of fragments.list) {
+            if (model.object) {
+                model.object.updateMatrixWorld(true);
+                const modelBox = new THREE.Box3().setFromObject(model.object);
+                if (!modelBox.isEmpty() && isFinite(modelBox.min.x)) {
+                    overallBox.union(modelBox);
+                    foundGeometry = true;
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Error calculating BBox:", e);
+    }
+
+    if (!foundGeometry) return;
+
+    const center = new THREE.Vector3();
+    overallBox.getCenter(center);
+
+    globalBox3Ref.current = overallBox;
+    globalCenterRef.current = center;
+  };
+
+  const onFocus = useCallback(async (mode: 'top-down' | 'isometric' | 'tight-fit' = 'tight-fit') => {
+    if (!cameraRef.current || !boxerRef.current || !highlighterRef.current) return;
+
+    // Only set loading if needed, remove global loader dependency if you don't want it visual
+    setIsGlobalLoading(true); 
+    setLoadingMessage("正在聚焦中");
+
+    const world = worldRef.current;
+    const camera = world?.camera as OBC.OrthoPerspectiveCamera;
+    const fragments = fragmentsRef.current as OBC.FragmentsManager;
+    const boxer = boxerRef.current;
+
+    boxer.list.clear();
+    const visibleMap: OBC.ModelIdMap = {};
+    
+    for (const [modelId, model] of fragments.list) {
+        const expressIds = await model.getItemsByVisibility(true);
+        if (expressIds.length > 0) {
+            visibleMap[modelId] = new Set(expressIds);
+        }
+    }
+
+    const modelIdCount = Object.keys(visibleMap).length;
+    
+    if(modelIdCount > 1 && globalBox3Ref.current && globalCenterRef.current) {
+        switch (mode) {
+            case 'top-down':
+                await camera.controls.setLookAt(
+                    globalCenterRef.current.x + 40, globalCenterRef.current.y + 60, globalCenterRef.current.z + 80,
+                    globalCenterRef.current.x + 40, globalCenterRef.current.y, globalCenterRef.current.z,
+                    true
+                );
+                break;
+            case 'isometric':
+                await camera.controls.setLookAt(125, -20, 100, 0, 0, 0, true);
+                break;
+            case 'tight-fit':
+                await camera.controls.fitToBox(globalBox3Ref.current, true, {
+                    paddingLeft: 0.1, paddingRight: 0.1, paddingTop: 0.1, paddingBottom: 0.1
+                });
+                break;
+        }
+    } else {
+        await boxer.addFromModelIdMap(visibleMap);
+        const box3 = boxer.get();
+
+        if (box3.isEmpty()) {
+            setIsGlobalLoading(false);
+            return;
+        }
+
+        const center = new THREE.Vector3();
+        box3.getCenter(center);
+
+        switch (mode) {
+            case 'top-down':
+                await camera.controls.setLookAt(
+                    center.x, center.y + 50, center.z + 80,
+                    center.x, center.y, center.z,
+                    true
+                );
+                break;
+            case 'isometric':
+                await camera.controls.setLookAt(125, -20, 100, 0, 0, 0, true);
+                break;
+            case 'tight-fit':
+                await camera.controls.fitToBox(box3, true, {
+                    paddingLeft: 0.1, paddingRight: 0.1, paddingTop: 0.1, paddingBottom: 0.1
+                });
+                break;
+        }
+    }
+    setIsGlobalLoading(false);
+  }, [worldRef, boxerRef, highlighterRef]);
+
+  // --- Fetching Logic ---
   const fetchR2Models = React.useCallback(async () => {
     try {
-      const response = await fetch('/api/models/r2-upload/list');
-      if (!response.ok) {
-        throw new Error(`Failed to fetch R2 models: ${response.statusText}`);
-      }
-      const r2Models = await response.json();
-      setUploadedModels((prevModels) => {
-        const r2ModelsFromApi = r2Models;
-        const updatedModels = prevModels.map((prevModel) => {
-          const matchingR2Model = r2ModelsFromApi.find(
-            (r2Model: any) => r2Model._id === prevModel._id
-          );
-          return matchingR2Model ? { ...prevModel, groupIds: matchingR2Model.groupIds } : prevModel;
-        });
-
-        r2ModelsFromApi.forEach((newR2Model: any) => {
-          if (!updatedModels.some((existingModel) => existingModel._id === newR2Model._id)) {
-            updatedModels.push(newR2Model);
-          }
-        });
-        return updatedModels;
-      });
-    } catch (error) {
-      console.error('Error fetching R2 models:', error);
+        const response = await fetch('/api/models/r2-upload/list');
+        if (!response.ok) throw new Error("Failed to fetch models");
+        const r2Models = await response.json();
+        setUploadedModels(prev => r2Models); 
+        return r2Models;
+    } catch(e) { 
+        console.error(e); 
+        return [];
     }
   }, [setUploadedModels]);
 
-  const handleAssignModelToGroup = React.useCallback(async (modelId: string, groupIds: string[]) => {
+  const loadR2ModelIntoViewer = useCallback(async (r2FileName: string, onProgress: (p: number)=>void) => {
+    if (!fragmentsRef.current || !worldRef.current) return;
     try {
-      const response = await fetch('/api/models/assign-group', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modelId, groupIds }),
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to assign model to group: ${response.statusText}`);
-      }
-      await fetchR2Models();
-      setToast({ message: `Model ${modelId} assigned to groups ${groupIds.join(', ') || 'ungrouped'} successfully!`, type: "success" });
-      setR2HistoryRefreshCounter(prev => prev + 1);
-    } catch (error) {
-      console.error('Error assigning model to group:', error);
-      setToast({ message: `Failed to assign model ${modelId} to group. Check console for details.`, type: "error" });
-    }
-  }, [fetchR2Models, setToast]);
-
-  const sendRemoteLog = React.useCallback(async (level: string, message: string, data?: any) => {
-    try {
-      // 處理 Error 物件以確保能被 JSON 序列化
-      let serializedData = data;
-      if (data instanceof Error) {
-        serializedData = {
-          message: data.message,
-          stack: data.stack,
-          name: data.name
-        };
-      } else if (data && typeof data === 'object') {
-        // 遞迴檢查是否有 Error 物件
-        serializedData = JSON.parse(JSON.stringify(data, Object.getOwnPropertyNames(data)));
-      }
-
-      await fetch('/api/debug/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level, message, data: serializedData }),
-      });
-    } catch (e) {
-      console.warn("Failed to send remote log", e);
-    }
-  }, []);
-
-  const loadR2ModelIntoViewer = React.useCallback(async (r2FileName: string, onProgress: (progress: number) => void) => {
-    if (!fragmentsRef.current || !worldRef.current) {
-      const msg = "Viewer components not initialized: fragmentsRef or worldRef is null";
-      console.error(msg);
-      sendRemoteLog("ERROR", msg);
-      return;
-    }
-
-    try {
-      const startMsg = `[DEBUG] Starting loadR2ModelIntoViewer for: ${r2FileName}`;
-      console.log(startMsg);
-      sendRemoteLog("INFO", startMsg);
-
       const downloadResponse = await fetch('/api/models/r2-upload/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileName: r2FileName }),
       });
-
-      if (!downloadResponse.ok) {
-        const errorText = await downloadResponse.text();
-        const errMsg = `[DEBUG] API Error (${downloadResponse.status}): ${errorText}`;
-        console.error(errMsg);
-        sendRemoteLog("ERROR", errMsg);
-        throw new Error(`Failed to get signed URL for ${r2FileName}: ${downloadResponse.statusText}`);
-      }
-
+      if (!downloadResponse.ok) throw new Error(`Failed to get signed URL`);
       const { signedUrl } = await downloadResponse.json();
-      const urlObj = new URL(signedUrl);
-      sendRemoteLog("INFO", `[DEBUG] Successfully obtained signed URL. Host: ${urlObj.host}, Protocol: ${urlObj.protocol}`);
       
-      console.log(`[DEBUG] Fetching model data from R2...`);
-      const modelResponse = await fetch(signedUrl).catch(err => {
-        const errMsg = `[DEBUG] Network error during R2 fetch: ${err.message}`;
-        console.error(errMsg, err);
-        sendRemoteLog("ERROR", errMsg, { stack: err.stack });
-        throw err;
-      });
-
-      if (!modelResponse.ok) {
-        const errMsg = `[DEBUG] R2 Download Error (${modelResponse.status}): ${modelResponse.statusText}`;
-        console.error(errMsg);
-        sendRemoteLog("ERROR", errMsg);
-        throw new Error(`Failed to download model ${r2FileName} from R2: ${modelResponse.statusText}`);
-      }
-
-      sendRemoteLog("INFO", `[DEBUG] R2 Response OK. Status: ${modelResponse.status}`);
+      const modelResponse = await fetch(signedUrl);
+      if (!modelResponse.ok) throw new Error(`Failed to download`);
+      
       const contentLength = modelResponse.headers.get('content-length');
       const total = contentLength ? parseInt(contentLength, 10) : 0;
       let loaded = 0;
-
       const reader = modelResponse.body?.getReader();
-      if (!reader) throw new Error("Response body is null");
-
+      if (!reader) throw new Error("No body");
       const chunks: Uint8Array[] = [];
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         chunks.push(value);
         loaded += value.length;
-        if (total > 0) {
-          onProgress((loaded / total) * 100);
-        }
+        if(total>0) onProgress((loaded/total)*100);
       }
-
       const arrayBuffer = await new Blob(chunks as BlobPart[]).arrayBuffer();
       const modelId = `${r2FileName}`;
-
-      if (fragmentsRef.current.list.has(modelId)) {
-        sendRemoteLog("INFO", `[DEBUG] Disposing existing model with ID: ${modelId}`);
-        fragmentsRef.current.core.disposeModel(modelId);
-      }
-
-      const loadMsg = `[DEBUG] Loading arrayBuffer into fragments engine... Size: ${arrayBuffer.byteLength} bytes`;
-      console.log(loadMsg);
-      sendRemoteLog("INFO", loadMsg);
-
-      const fragModel = await fragmentsRef.current.core.load(arrayBuffer, { modelId }).catch(err => {
-        const errMsg = `[DEBUG] Fragments engine load error: ${err.message}`;
-        console.error(errMsg, err);
-        sendRemoteLog("ERROR", errMsg, { stack: err.stack });
-        throw err;
-      });
       
+      if(fragmentsRef.current.list.has(modelId)) fragmentsRef.current.core.disposeModel(modelId);
+      const fragModel = await fragmentsRef.current.core.load(arrayBuffer, { modelId });
       fragmentsRef.current.list.set(modelId, fragModel);
-
-      sendRemoteLog("INFO", `[DEBUG] Model loaded. Setting up camera and scene...`);
-      const cam = worldRef.current.camera.three as THREE.PerspectiveCamera | THREE.OrthographicCamera;
-      fragModel.useCamera(cam);
+      fragModel.useCamera(worldRef.current.camera.three as PerspectiveCamera | OrthographicCamera);
       worldRef.current.scene.three.add(fragModel.object);
       fragmentsRef.current.core.update(true);
 
-      const successMsg = `[DEBUG] Model ${r2FileName} successfully integrated into viewer.`;
-      console.log(successMsg);
-      sendRemoteLog("INFO", successMsg);
       setUploadedModels((prev) => {
-        const existingModelIndex = prev.findIndex(m => m.r2FileName === r2FileName);
-        if (existingModelIndex > -1) {
-          const updated = [...prev];
-          updated[existingModelIndex] = { ...updated[existingModelIndex], id: modelId, data: arrayBuffer };
-          return updated;
+        const idx = prev.findIndex(m => m.r2FileName === r2FileName);
+        if (idx > -1) {
+            const updated = [...prev];
+            updated[idx] = { ...updated[idx], id: modelId, data: arrayBuffer };
+            return updated;
         }
         return [...prev, { id: modelId, name: r2FileName, type: "frag", data: arrayBuffer, r2FileName }];
       });
+      
+      await loadCategoriesFromAllModels();
 
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const finalMsg = `[DEBUG] Final Catch - Failed to load model ${r2FileName}: ${errorMessage}`;
-      console.error(finalMsg, error);
-      sendRemoteLog("ERROR", finalMsg, { stack: (error as any)?.stack });
-      setToast({ message: `Failed to load model ${r2FileName}: ${errorMessage}`, type: "error" });
-    }
-  }, [fragmentsRef, worldRef, setUploadedModels, setToast]);
+    } catch(e) { console.error(e); }
+  }, [fragmentsRef, worldRef, setUploadedModels]);
 
-  const extractAndSaveElements = async (model: FRAGS.FragmentsModel) => {
-    if (!componentsRef.current) return;
-    console.log("Starting element extraction...");
-  
-    try {
-      const itemIDs = await model.getItemsIdsWithGeometry();
-      if (itemIDs.length === 0) {
-        console.log("No elements found in the model to extract.");
-        return;
-      }
-      console.log(`Found ${itemIDs.length} elements. Processing in batches...`);
-  
-      const batchSize = 100;
-      let processedCount = 0;
-      let totalInserted = 0;
-  
-      for (let i = 0; i < itemIDs.length; i += batchSize) {
-        const batch = Array.from(itemIDs.slice(i, i + batchSize));
-        
-        const relationNames = await model.getRelationNames();
-        const relationsConfig: { [key: string]: { attributes: boolean, relations: boolean } } = {};
-        for (const name of relationNames) {
-          relationsConfig[name] = { attributes: true, relations: true };
-        }
-
-        const batchProperties = await model.getItemsData(batch, {
-          attributesDefault: true,
-          relations: relationsConfig,
-        });
-  
-        const relationNamesSet = new Set(relationNames);
-        const elementsToSave = batchProperties.map((properties: any) => {
-          const attributes: { [key: string]: any } = {};
-          const relations: { [key: string]: any } = {};
-          let psets: PsetDict = {};
-
-          if (properties) {
-            for (const key in properties) {
-              if (relationNamesSet.has(key)) {
-                relations[key] = properties[key];
-                if (key === "IsDefinedBy" && Array.isArray(properties[key])) {
-                  psets = formatItemPsets(properties[key]);
-                }
-              } else {
-                attributes[key] = properties[key];
-              }
-            }
-          }
-
-          return {
-            modelId: model.modelId,
-            expressID: attributes._localId?.value,
-            attributes,
-            psets,
-            relations,
-          };
-        });
-  
-        if (elementsToSave.length > 0) {
-          const response = await fetch('/api/elements', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(elementsToSave),
-          });
-  
-          if (!response.ok) {
-            const errorBody = await response.text();
-            console.error(`API request failed for batch starting at index ${i}: ${errorBody}`);
-            continue;
-          }
-  
-          const apiResult = await response.json();
-          totalInserted += apiResult.insertedCount || 0;
-        }
-  
-        processedCount += batch.length;
-        console.log(`Processed ${processedCount}/${itemIDs.length} elements. Total inserted so far: ${totalInserted}`);
-      }
-  
-      console.log("Finished processing all batches.");
-      setToast({ message: `Successfully processed all elements. A total of ${totalInserted} new elements were saved to the database!`, type: "success" });
-  
-    } catch (error) {
-      console.error("An error occurred during element extraction:", error);
-      setToast({ message: "Failed to extract elements. Check the console for details.", type: "error" });
-    }
-  };
-
-  const loadCategoriesFromAllModels = async () => {
-    if (!fragmentsRef.current) return;
-
-    const allCats: Set<string> = new Set();
-
-    for (const model of fragmentsRef.current.list.values()) {
-      const cats = await model.getItemsOfCategories([/.*/]);
-      Object.keys(cats).forEach((c) => allCats.add(c));
-    }
-
-    setCategories(Array.from(allCats).sort());
-  };
-
-  const handleToggleAddMode = (active: boolean, groupId: string | null) => {
-    setIsAddingToGroup(active);
-    setActiveAddGroupId(groupId);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await Promise.all([
-        fetch('/api/logout', { method: 'POST' }),
-        signOut({ redirect: false })
-      ]);
-    } catch (error) {
-      console.error('Failed to log out', error);
-    } finally {
-      setUser(null);
-      setIsLoggedIn(false);
-      setIsUserPanelOpen(false);
-    }
-  };
-
-  useEffect(() => {
-    // 嘗試從 localStorage 恢復登入狀態與使用者資訊
-    const savedLogin = localStorage.getItem("isLoggedIn") === "true";
-    const savedUser = localStorage.getItem("user_data");
+  const loadAllModels = async () => {
+    if (!componentsRef.current || !fragmentsRef.current || !worldRef.current) return;
     
-    if (!isLoggedIn && savedLogin) {
-      setIsLoggedIn(true);
-      if (savedUser && !user) {
-        setUser(JSON.parse(savedUser));
-      }
+    let modelsToLoad = uploadedModels.filter(m => m.r2FileName);
+
+    if (modelsToLoad.length === 0) {
+        console.log("State empty, fetching models manually...");
+        const fetchedModels = await fetchR2Models();
+        modelsToLoad = fetchedModels.filter((m: any) => m.r2FileName);
     }
 
-    if (!isLoggedIn && !savedLogin) {
-      setShowLoginModal(true);
-    } else {
-      setShowLoginModal(false);
-      if (isLoggedIn) {
-        localStorage.setItem("isLoggedIn", "true");
-        if (user) localStorage.setItem("user_data", JSON.stringify(user));
-      }
+    if (modelsToLoad.length === 0) {
+      console.warn("No R2 models found to load.");
+      return;
     }
-  }, [isLoggedIn, setIsLoggedIn, user, setUser]);
 
-  useEffect(() => {
-    // Trigger selectAll and loadSelectedModels when HomePanel is opened, but only once
-    if (isLoggedIn && isSidePanelOpen && selectedSidePanel === "home" && searchElementRef.current && !hasAutoLoadedModels) {
-      // Ensure the HomePanel is fully rendered and its ref is available
-      const timer = setTimeout(async () => {
-        if (searchElementRef.current) {
-          const selectedModels = await searchElementRef.current.handleSelectAllModels(); // Wait for selectAll to complete and get selected models
-          await searchElementRef.current.handleLoadSelectedR2Models(selectedModels); // Pass selected models
-          setHasAutoLoadedModels(true); // Mark as loaded
+    setHasAutoLoadedModels(true);
+    setShowProgressModal(true);
+    setProgress(0);
+    
+    try {
+        let loadedCount = 0;
+        for (const model of modelsToLoad) {
+          try {
+            await loadR2ModelIntoViewer(model.r2FileName!, (p) => {
+              setProgress(Math.round(((loadedCount * 100) + p) / modelsToLoad.length));
+            });
+          } catch(e) { console.error("Error loading model:", e); }
+          loadedCount++;
         }
-      }, 500); // A small delay to ensure rendering and model availability
-      return () => clearTimeout(timer);
+        
+        await getAllCenterAndBox3();
+        await onFocus('isometric');
+        
+    } catch (error) {
+      console.error("Critical error in loadAllModels:", error);
+      setToast({ message: "Error loading models", type: "error" });
+    } finally {
+      setShowProgressModal(false);
+      setProgress(100);
     }
-  }, [isLoggedIn, isSidePanelOpen, selectedSidePanel, searchElementRef.current, hasAutoLoadedModels]);
-
-  useEffect(() => {
-    // Prevent scrolling on mobile
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.width = '100%';
-    document.body.style.height = '100%';
-
-    return () => {
-      // Revert styles when component unmounts
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleGlobalError = (event: ErrorEvent) => {
-      const msg = `[GLOBAL ERROR] ${event.message}`;
-      console.error(msg, event.error);
-      sendRemoteLog("ERROR", msg, {
-        stack: event.error?.stack,
-        filename: event.filename,
-        lineno: event.lineno,
-        colno: event.colno
-      });
-      setToast({ message: `Global Error: ${event.message}`, type: "error" });
-    };
-
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      const msg = `[UNHANDLED REJECTION] ${event.reason}`;
-      console.error(msg, event.reason);
-      sendRemoteLog("ERROR", msg, {
-        reason: String(event.reason),
-        stack: event.reason?.stack
-      });
-      setToast({ message: `Unhandled Rejection: ${event.reason}`, type: "error" });
-    };
-
-    window.addEventListener("error", handleGlobalError);
-    window.addEventListener("unhandledrejection", handleUnhandledRejection);
-
-    // 監聽 WebGL 崩潰 (Context Lost)
-    const handleContextLost = (event: Event) => {
-      event.preventDefault();
-      const msg = "[WEBGL ERROR] WebGL Context Lost! The device might be out of memory.";
-      console.error(msg);
-      sendRemoteLog("ERROR", msg);
-      setToast({ message: "3D 引擎崩潰，可能是手機記憶體不足，正在嘗試恢復...", type: "error" });
-    };
-
-    const canvas = viewerRef.current?.querySelector('canvas');
-    canvas?.addEventListener("webglcontextlost", handleContextLost);
-
-    return () => {
-      window.removeEventListener("error", handleGlobalError);
-      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
-      canvas?.removeEventListener("webglcontextlost", handleContextLost);
-    };
-  }, [setToast, sendRemoteLog]);
-
-  useEffect(() => {
-    // 檢查是否有上次崩潰前的麵包屑
-    const lastBreadcrumb = localStorage.getItem("crash_breadcrumb");
-    if (lastBreadcrumb) {
-      sendRemoteLog("WARN", "App recovered from a potential crash/reload", { lastAction: lastBreadcrumb });
-      localStorage.removeItem("crash_breadcrumb");
-    }
-
-    // 測試遠端日誌連線
-    sendRemoteLog("INFO", "Mobile Viewer Client Connected", {
-      userAgent: navigator.userAgent,
-      platform: navigator.platform,
-      screen: `${window.screen.width}x${window.screen.height}`
-    });
-  }, [sendRemoteLog]);
-
-  // 麵包屑記錄器
-  const setBreadcrumb = (action: string) => {
-    localStorage.setItem("crash_breadcrumb", `${new Date().toISOString()}: ${action}`);
   };
 
+  const getCanvasSnapshot = (): Uint8Array | null => {
+    if (!worldRef.current || !worldRef.current.renderer) return null;
+    try {
+        const renderer = worldRef.current.renderer;
+        const canvas = renderer.three.domElement;
+        
+        if (worldRef.current.scene && worldRef.current.camera) {
+          renderer.three.render(worldRef.current.scene.three, worldRef.current.camera.three);
+        }
+
+        const dataUrl = canvas.toDataURL("image/png");
+        const byteString = atob(dataUrl.split(',')[1]);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+        return ia;
+    } catch (e) {
+        console.error("Snapshot error:", e);
+        return null;
+    }
+  };
+
+  // --- Viewpoint Logic ---
+  const createViewpoint = async (): Promise<OBC.Viewpoint | null> => {
+    if (!viewpointsRef.current || !worldRef.current) return null;
+    if (!worldRef.current.camera) return null;
+
+    viewpointsRef.current.world = worldRef.current;
+    const vp = viewpointsRef.current.create();
+    if (!vp) return null;
+
+    vp.title = `Viewpoint ${storedViews.length + 1}`;
+    
+    try {
+        await vp.updateCamera();
+
+        const snapshotBuffer = getCanvasSnapshot();
+        if (snapshotBuffer && viewpointsRef.current.snapshots) {
+            viewpointsRef.current.snapshots.set(vp.guid, snapshotBuffer);
+        }
+
+        const snapshotData = getViewpointSnapshotData(vp) || "";
+
+        setStoredViews((prev) => [
+          ...prev,
+          {
+            id: vp.guid,
+            title: vp.title || `Viewpoint ${prev.length + 1}`,
+            viewpoint: vp,
+            snapshot: snapshotData,
+          },
+        ]);
+
+        setCurrentViewpoint(vp);
+        return vp;
+    } catch (e) {
+        console.error("Create Viewpoint Failed:", e);
+        return null;
+    }
+  };
+
+  const generateDefaultViewpoints = async () => {
+    if (!viewpointsRef.current || !worldRef.current) return;
+    
+    if (!globalBox3Ref.current || !globalCenterRef.current) {
+      await getAllCenterAndBox3();
+      if(!globalBox3Ref.current) return;
+    }
+
+    if (storedViews.length > 0) return;
+
+    setShowProgressModal(true);
+    setProgress(0);
+    
+    viewpointsRef.current.world = worldRef.current;
+
+    const center = globalCenterRef.current!;
+    const size = new THREE.Vector3();
+    globalBox3Ref.current!.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const dist = maxDim * 1.5;
+
+    const positions = [
+      { name: "Front Door", pos: new THREE.Vector3(center.x, center.y, center.z + dist) },
+      { name: "Back Door", pos: new THREE.Vector3(center.x, center.y, center.z - dist) },
+      { name: "Left Door", pos: new THREE.Vector3(center.x - dist, center.y, center.z) },
+      { name: "Right Door", pos: new THREE.Vector3(center.x + dist, center.y, center.z) },
+    ];
+
+    const camera = worldRef.current.camera as OBC.OrthoPerspectiveCamera;
+    const newViews: StoredViewpoint[] = [];
+    const totalSteps = positions.length;
+
+    for (const [index, view] of positions.entries()) {
+      
+      await camera.controls.setLookAt(
+        view.pos.x, view.pos.y, view.pos.z, 
+        center.x, center.y, center.z,       
+        false                               
+      );
+      
+      await new Promise(r => setTimeout(r, 100)); 
+
+      const vp = viewpointsRef.current.create();
+      if (vp) {
+        vp.title = view.name;
+        await vp.updateCamera();
+        
+        const snapshotBuffer = getCanvasSnapshot();
+        if (snapshotBuffer && viewpointsRef.current.snapshots) {
+          viewpointsRef.current.snapshots.set(vp.guid, snapshotBuffer);
+        }
+        
+        const snapshotData = getViewpointSnapshotData(vp);
+        newViews.push({
+          id: vp.guid,
+          title: view.name,
+          viewpoint: vp,
+          snapshot: snapshotData
+        });
+      }
+
+      const currentProgress = Math.round(((index + 1) / totalSteps) * 100);
+      setProgress(currentProgress);
+    }
+
+    setStoredViews(newViews);
+    
+    setTimeout(() => {
+      setShowProgressModal(false);
+    }, 300);
+    
+    if (newViews.length > 0) {
+      setCurrentViewpoint(newViews[0].viewpoint);
+      await newViews[0].viewpoint.go();
+    }
+  };
+
+  useEffect(() => {
+    if (SearchResultMode) {
+      setTimeout(() => { generateDefaultViewpoints(); }, 300);
+    }
+  }, [SearchResultMode]);
+
+  const updateViewpointCamera = async (viewpoint: OBC.Viewpoint) => {
+    if (!viewpoint) return;
+    await viewpoint.updateCamera();
+  };
+
+  const setWorldCamera = async (viewpoint: OBC.Viewpoint) => {
+    if (!viewpoint || !worldRef.current) return;
+    await viewpoint.go();
+  };
+
+  const getViewpointSnapshotData = (vp: OBC.Viewpoint): string | null => {
+    if (!vp || !viewpointsRef.current) return null;
+    const data = viewpointsRef.current.snapshots.get(vp.guid);
+    if (!data) return null;
+    try {
+        let binary = "";
+        for (let i = 0; i < data.length; i++) {
+          binary += String.fromCharCode(data[i]);
+        }
+        return btoa(binary);
+    } catch(e) { return null; }
+  };
+
+  // --- Handle Logic ---
+  const handleIssueForms = async() => {
+    console.log("Open Issue Form logic triggered (Disabled)");
+    setToast({ message: "報修表單功能開發中", type: "success" });
+  };
+
+  const handleLocateElementByName = async () => {
+    if (!isViewerReady) {
+        setToast({message: "Viewer is initializing...", type: "warning"});
+        return;
+    }
+
+    if (!hasAutoLoadedModels) {
+        if (!elementSearchTerm.trim()) {
+          setToast({message: "Enter name", type: "warning"}); return;
+        }
+        setIsGlobalLoading(true);
+        try {
+          await loadAllModels();
+          await new Promise(r => setTimeout(r, 1200));
+        } catch(e) { setIsGlobalLoading(false); return; }
+    }
+
+    if (!elementSearchTerm.trim()) {
+      setToast({message: "Enter name", type: "warning"}); return;
+    }
+
+    setIsGlobalLoading(true);
+    
+    let modelIds: string[] = [];
+    try {
+      if (fragmentsRef.current) {
+        try {
+          modelIds = Array.from(fragmentsRef.current.list.keys());
+        } catch (innerError) {
+          console.warn("Fragments list access failed.", innerError);
+        }
+      }
+    } catch (e) {
+      console.error("Fragment Access Error:", e);
+      setIsGlobalLoading(false);
+      setToast({ message: "Viewer error: Please reload.", type: "error" });
+      return;
+    }
+
+    if (modelIds.length === 0) {
+      setIsGlobalLoading(false);
+      setToast({ message: "No models loaded.", type: "warning" });
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/elements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          queries: [{ id: 0, attribute: "Name", operator: "include", value: elementSearchTerm, logic: "AND" }],
+          modelIds: modelIds,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Search failed');
+      const foundElements = await response.json();
+
+      if (foundElements.length > 0) {
+        const selection: OBC.ModelIdMap = {};
+        for (const element of foundElements) {
+          const { modelId, attributes } = element;
+          const expressID = attributes._localId.value;
+          if (!selection[modelId]) selection[modelId] = new Set();
+          selection[modelId].add(expressID);
+        }
+        
+        const firstModelId = Object.keys(selection)[0];
+        const firstExpressId = Array.from(selection[firstModelId])[0];
+        setSelectedFragId(firstModelId);
+        setSelectedDevice(firstExpressId);
+
+        if(highlighterRef.current) {
+          await highlighterRef.current.clear();
+          await highlighterRef.current.highlightByID("select", selection, true, true);
+        }
+        if(cameraRef.current) await cameraRef.current.fitToItems(selection);
+        
+        setToast({ message: `Found ${foundElements.length} elements`, type: "success" });
+        setSearchResultMode(true);
+      } else {
+        setToast({ message: "No elements found", type: "error" });
+      }
+    } catch(e) { 
+      console.error(e); 
+      setToast({ message: "Search Error", type: "error" });
+    } finally {
+      setIsGlobalLoading(false);
+    }
+  };
+
+  const handleLocateIssueById = async () => {
+    if (!isViewerReady) {
+      setToast({message: "Viewer is initializing...", type: "warning"});
+      return;
+    }
+
+    if (!hasAutoLoadedModels) {
+        if (!issueIdSearchTerm.trim()) {
+          setToast({message: "Enter Issue ID", type: "warning"}); return;
+        }
+        setIsGlobalLoading(true);
+        try {
+          await loadAllModels();
+          await new Promise(r => setTimeout(r, 1200));
+        } catch(e) { setIsGlobalLoading(false); return; }
+    }
+
+    if (!issueIdSearchTerm.trim()) {
+      setToast({message: "Enter Issue ID", type: "warning"}); return;
+    }
+
+    setIsGlobalLoading(true);
+
+    let modelIds: string[] = [];
+    try {
+        if (fragmentsRef.current) {
+          try {
+            modelIds = Array.from(fragmentsRef.current.list.keys());
+          } catch (innerError) {
+            console.warn("Fragments list access failed.", innerError);
+          }
+        }
+    } catch (e) {
+      console.error("Fragment Access Error:", e);
+      setIsGlobalLoading(false);
+      setToast({ message: "Viewer error: Please reload.", type: "error" });
+      return;
+    }
+
+    if (modelIds.length === 0) {
+      setIsGlobalLoading(false);
+      setToast({ message: "No models loaded.", type: "warning" });
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/elements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          queries: [{ id: 0, attribute: "IssueID", operator: "equal", value: issueIdSearchTerm, logic: "AND" }], 
+          modelIds: modelIds,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Search request failed');
+      const foundElements = await response.json();
+
+      if (foundElements.length > 0) {
+        const selection: OBC.ModelIdMap = {};
+        for (const element of foundElements) {
+          const { modelId, attributes } = element;
+          const expressID = attributes._localId.value;
+          if (!selection[modelId]) selection[modelId] = new Set();
+          selection[modelId].add(expressID);
+        }
+
+        const firstModelId = Object.keys(selection)[0];
+        const firstExpressId = Array.from(selection[firstModelId])[0];
+        setSelectedFragId(firstModelId);
+        setSelectedDevice(firstExpressId);
+
+        if (highlighterRef.current) {
+          await highlighterRef.current.clear();
+          await highlighterRef.current.highlightByID("select", selection, true, true);
+        }
+        
+        if (cameraRef.current) {
+          await cameraRef.current.fitToItems(selection);
+        }
+
+        setToast({ message: `Found Issue ID ${issueIdSearchTerm}`, type: "success" });
+        setSearchResultMode(true);
+      } else {
+        setToast({ message: "Issue ID not found", type: "error" });
+      }
+    } catch (error) {
+      console.error("Locate Issue failed:", error);
+      setToast({ message: "Issue search failed", type: "error" });
+    } finally {
+      setIsGlobalLoading(false);
+    }
+  };
+
+  const handleBackToSearch = () => {
+    setSearchResultMode(false);
+    if (highlighterRef.current) highlighterRef.current.clear();
+    setSelectedFragId(null);
+    setSelectedDevice(null);
+  };
+
+  const handleQRScan = (data: string | null) => {
+    if (!data) return;
+    setElementSearchTerm(data);
+    setActiveSearchMode('element');
+    setTimeout(() => { handleLocateElementByName(); }, 100);
+    setIsQRScannerOpen(false);
+    setShowRepairButton(false);
+  };
+
+  // Init
   useEffect(() => {
     if (!viewerRef.current) return;
-
-    let components: OBC.Components;
-    let resizeObserver: ResizeObserver;
-
-    const initViewer = async () => {
-      components = new OBC.Components();
+    const init = async () => {
+      const components = new OBC.Components();
       setComponents(components);
-
       const worlds = components.get(OBC.Worlds);
       const world = worlds.create();
       viewerApi.init(components, world);
       componentsRef.current = components;
       worldRef.current = world;
-
+      
       const scene = new OBC.SimpleScene(components);
       world.scene = scene;
       scene.setup();
-      scene.three.background = null;
+      scene.three.background = null; 
 
-      const hdriLoader = new RGBELoader();
-      hdriLoader.load(
-        "https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr",
-        (texture) => {
-          texture.mapping = EquirectangularReflectionMapping;
-          (world.scene.three as Scene).environment = texture;
-        },
-      );
-
-      // 在手機版改用 SimpleRenderer 並強制解析度為 1x 以節省顯存
       const renderer = new OBC.SimpleRenderer(components, viewerRef.current!);
       world.renderer = renderer;
-
+      
       const camera = new OBC.OrthoPerspectiveCamera(components);
       world.camera = camera;
-      await camera.controls.setLookAt(3, 3, 3, 0, 0, 0);
-      camera.updateAspect();
       cameraRef.current = camera;
-
+      
       components.init();
-
-      const grids = components.get(OBC.Grids);
-
-      const casters = components.get(OBC.Raycasters);
-      casters.get(world);
-
+      
       const viewpoints = components.get(OBC.Viewpoints);
       viewpoints.world = world;
+      viewpointsRef.current = viewpoints; 
 
-
-      // Initialize tools
       const highlighter = components.get(OBCF.Highlighter);
       highlighter.setup({ world });
       highlighter.zoomToSelection = true;
       highlighterRef.current = highlighter;
-
-      highlighter.events.select.onHighlight.add(async (selection) => {
-        if (!Object.keys(selection).length) {
-          setIsInfoOpen(false);
-          setSelectedModelId(null);
-          setSelectedLocalId(null);
-          setSelectedAttrs({});
-          setSelectedPsets({});
-          setRawPsets([]);
-          setQrCodeData([]);
-          return;
-        }
-
-        if (isAddingToGroupRef.current && activeAddGroupIdRef.current !== null) {
-          for (const fragmentId in selection) {
-            const model = fragmentsRef.current?.list.get(fragmentId);
-            if (!model) continue;
-            for (const expressId of selection[fragmentId]) {
-              const [attrs] = await model.getItemsData([expressId], { attributesDefault: true });
-              let name = `Element ${expressId}`;
-              const nameAttribute = attrs?.Name as OBC.IDSAttribute;
-              if (nameAttribute && typeof nameAttribute.value === 'string') {
-                name = nameAttribute.value;
-              }
-              const newItem = {
-                id: `${fragmentId}-${expressId}`,
-                name: name,
-                expressID: expressId,
-                fragmentId: fragmentId,
-              };
-              searchElementRef.current?.addItemToGroup(String(activeAddGroupIdRef.current), newItem);
-            }
-          }
-          await highlighter.clear("select");
-        } else {
-          // setIsInfoOpen(true);
-          setInfoLoading(true);
-
-          // For simplicity on mobile, we'll only show info for the first selected item
-          const fragmentId = Object.keys(selection)[0];
-          const expressId = Array.from(selection[fragmentId])[0];
-          
-          const model = fragmentsRef.current?.list.get(fragmentId);
-          if (!model) {
-              setInfoLoading(false);
-              return;
-          };
-
-          const [attrs] = await model.getItemsData([expressId], { attributesDefault: true });
-          const psetsRaw = await getItemPsets(model, expressId);
-          const psets = formatItemPsets(psetsRaw);
-
-          let name = `Element ${expressId}`;
-          const nameAttribute = attrs?.Name as OBC.IDSAttribute;
-          if (nameAttribute && typeof nameAttribute.value === 'string') {
-            name = nameAttribute.value;
-          }
-
-          let qrCodeUrl = '';
-          try {
-            const response = await fetch(`/api/elements/${expressId}`);
-            if (response.ok) {
-              const elementData = await response.json();
-              if (elementData && elementData._id) {
-                qrCodeUrl = `${window.location.origin}/element/${fragmentId}/${elementData._id}`;
-              }
-            }
-          } catch (error) {
-            console.error('Error fetching element data for QR code:', error);
-          }
-
-          setSelectedModelId(fragmentId);
-          setSelectedLocalId(expressId);
-          setSelectedAttrs(attrs ?? {});
-          setSelectedPsets(psets);
-          setRawPsets(psetsRaw);
-          setQrCodeData([{ url: qrCodeUrl, name, modelId: fragmentId, expressId }]);
-          setInfoLoading(false);
-        }
-      });
-
-      const clipper = components.get(OBC.Clipper);
-      clipper.enabled = false;
-      clipperRef.current = clipper;
-
-      components.get(OBC.Hider); // Initialize Hider
-      components.get(OBC.ItemsFinder);
-
-      const githubUrl = "https://thatopen.github.io/engine_fragment/resources/worker.mjs";
-      console.log(`[DEBUG] Fetching fragments worker from: ${githubUrl}`);
-      const fetchedUrl = await fetch(githubUrl).catch(err => {
-        console.error("[DEBUG] Failed to fetch worker script:", err);
-        throw err;
-      });
-      const workerBlob = await fetchedUrl.blob();
-      const workerFile = new File([workerBlob], "worker.mjs", { type: "text/javascript" });
-      const workerUrl = URL.createObjectURL(workerFile);
-      console.log(`[DEBUG] Worker URL created: ${workerUrl}`);
+      
+      const boxer = components.get(OBC.BoundingBoxer); 
+      boxerRef.current = boxer;
 
       const fragments = components.get(OBC.FragmentsManager);
-      fragments.init(workerUrl);
-      fragmentsRef.current = fragments;
-
-      // 限制更新頻率以節省記憶體與 CPU
-      let updateTimeout: NodeJS.Timeout | null = null;
-      camera.controls.addEventListener("update", () => {
-        if (updateTimeout) return;
-        setBreadcrumb("Camera Update / Zooming");
-        updateTimeout = setTimeout(() => {
-          fragments.core.update(true);
-          updateTimeout = null;
-        }, 100); // 每 100ms 最多更新一次
-      });
-
-      fragments.list.onItemSet.add(({ value: model }) => {
-        const cam = world.camera.three as PerspectiveCamera | OrthographicCamera;
-        model.useCamera(cam);
-        world.scene.three.add(model.object);
-        fragments.core.update(true);
-        setTimeout(() => {
-          if (worldRef.current?.camera) {
-            (worldRef.current.camera as OBC.OrthoPerspectiveCamera).fitToItems();
-          }
-        }, 1500);
-      });
-
-      resizeObserver = new ResizeObserver(() => {
-        renderer.resize();
-        camera.updateAspect();
-      });
-      resizeObserver.observe(viewerRef.current!);
+      
+      const githubUrl = "https://thatopen.github.io/engine_fragment/resources/worker.mjs";
+      try {
+          const fetchedUrl = await fetch(githubUrl);
+          const workerBlob = await fetchedUrl.blob();
+          const workerFile = new File([workerBlob], "worker.mjs", { type: "text/javascript" });
+          const workerUrl = URL.createObjectURL(workerFile);
+          
+          await fragments.init(workerUrl); 
+          
+          fragmentsRef.current = fragments;
+          setIsViewerReady(true);
+      } catch (error) {
+          console.error("Failed to init fragments:", error);
+          setToast({ message: "Init failed", type: "error" });
+      }
     };
-
-    initViewer();
-
-    return () => {
-      if (resizeObserver && viewerRef.current) {
-        resizeObserver.unobserve(viewerRef.current);
-      }
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-      }
-      if (components) {
-        components.dispose();
-      }
+    init();
+    return () => { 
+      componentsRef.current?.dispose(); 
+      componentsRef.current = null;
+      fragmentsRef.current = null;
+      worldRef.current = null;
+      viewpointsRef.current = null;
+      setIsViewerReady(false);
     };
   }, []);
 
-  useEffect(() => {
-    const loadModelFromR2 = async () => {
-      if (!fragmentsRef.current) return;
-      setShowProgressModal(true);
-      setProgress(0);
-
-      let simulatedProgress = 0;
-      const progressInterval = setInterval(() => {
-        simulatedProgress += Math.random() * 8;
-        if (simulatedProgress >= 98) simulatedProgress = 98;
-        setProgress(Math.floor(simulatedProgress));
-      }, 180);
-
-      console.log("Loading model from R2...");
-      try {
-        // 1. Get signed URL from our new API endpoint
-        const downloadResponse = await fetch('/api/models/r2-upload/download', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fileName: '2024.04.18合併簡化-1V2.frag' }),
-        });
-
-        if (!downloadResponse.ok) {
-          throw new Error('Failed to get signed URL for R2 download.');
-        }
-
-        const { signedUrl } = await downloadResponse.json();
-
-        // 2. Fetch the model from R2 using the signed URL
-        const modelResponse = await fetch(signedUrl);
-        if (!modelResponse.ok) {
-          throw new Error(`Failed to download model from R2: ${modelResponse.statusText}`);
-        }
-        const arrayBuffer = await modelResponse.arrayBuffer();
-        const modelId = `default-db-model`;
-
-        // 3. Load the model into the viewer
-        for (const [id] of fragmentsRef.current.list) {
-          fragmentsRef.current.core.disposeModel(id);
-        }
-        const model = await fragmentsRef.current.core.load(arrayBuffer, { modelId });
-        fragmentsRef.current.list.set(modelId, model);
-        setUploadedModels([{ id: modelId, name: "Model from R2", type: "frag", data: arrayBuffer }]);
-        
-      } catch (error) {
-        console.error('Failed to load model from R2:', error);
-      } finally {
-        clearInterval(progressInterval);
-        setProgress(100);
-        setTimeout(() => setShowProgressModal(false), 500);
-      }
-    };
-
-    const initModels = async () => {
-      if (componentsRef.current && isLoggedIn && fragmentsRef.current) {
-        // loadModelFromR2(); // Commented out to avoid loading default model if we want auto-load from HomePanel
-        await fetchR2Models();
-      }
-    };
-    initModels();
-  }, [components, isLoggedIn, fetchR2Models]);
-
-  const getItemPsets = async (model: any, localId: number) => {
-    const [data] = await model.getItemsData([localId], {
-      attributesDefault: false,
-      attributes: ["Name", "NominalValue"],
-      relations: {
-      IsDefinedBy: { attributes: true, relations: true },
-      DefinesOcurrence: { attributes: false, relations: false },
-      },
-    });
-    return (data?.IsDefinedBy as FRAGS.ItemData[]) ?? [];
-  };
-
-  const formatItemPsets = (raw: FRAGS.ItemData[]) => {
-    const result: PsetDict = {};
-    for (const pset of raw) {
-      const { Name: psetName, HasProperties } = pset as any;
-      if (!(psetName && "value" in psetName && Array.isArray(HasProperties))) continue;
-      const props: Record<string, any> = {};
-      for (const prop of HasProperties) {
-      const { Name, NominalValue } = prop || {};
-      if (!(Name && "value" in Name && NominalValue && "value" in NominalValue)) continue;
-      props[Name.value] = NominalValue.value;
-      }
-      result[psetName.value] = props;
-    }
-    return result;
-  };
-
-  // Tool handlers from IFCViewerContainer
-  const onToggleVisibility = async () => {
-    if (!components) return;
-    const highlighter = highlighterRef.current;
-    const hider = components.get(OBC.Hider);
-    if (!highlighter || !hider) return;
-
-    const selection = highlighter.selection.select;
-    if (!selection || Object.keys(selection).length === 0) return;
-
-    for (const modelId in selection) {
-      const localIds = Array.from(selection[modelId]);
-      if (localIds.length === 0) continue;
-
-      const fragments = components.get(OBC.FragmentsManager);
-      const model = fragments?.list.get(modelId);
-      if (!model) continue;
-
-      const visibility = await model.getVisible(localIds);
-      const isAllVisible = visibility.every((v) => v);
-
-      const modelIdMap: OBC.ModelIdMap = { [modelId]: new Set(localIds) };
-      await hider.set(!isAllVisible, modelIdMap);
-    }
-  };
-
-  const onIsolate = async () => {
-    if (!components) return;
-    const highlighter = highlighterRef.current;
-    const hider = components.get(OBC.Hider);
-    if (!highlighter || !hider) return;
-    const selection = highlighter.selection.select;
-    if (!selection || Object.keys(selection).length === 0) return;
-    await hider.set(false);
-    await hider.set(true, selection);
-  };
-
-  const onFocus = async () => {
-    if (!cameraRef.current || !highlighterRef.current) return;
-    const selection = highlighterRef.current.selection.select;
-
-    let hasSelection = false;
-    if (selection) {
-      for (const modelId in selection) {
-        if (selection[modelId] instanceof Set && selection[modelId].size > 0) {
-          hasSelection = true;
-          break;
-        }
-      }
-    }
-
-    if (hasSelection) {
-      await cameraRef.current.fitToItems(selection);
-    } else {
-      await cameraRef.current.fitToItems();
-    }
-  };
-
-  const onShow = async () => {
-    await viewerApi.showAllElements();
-  };
-
-  const originalColors = useRef(new Map<
-    FRAGS.BIMMaterial,
-    { color: number; transparent: boolean; opacity: number }
-  >());
-
-  const setModelTransparent = (components: OBC.Components) => {
-    const fragments = components.get(OBC.FragmentsManager);
-
-    const materials = [...fragments.core.models.materials.list.values()];
-    for (const material of materials) {
-      if (material.userData.customId) continue;
-
-      if (!originalColors.current.has(material)) {
-        let color: number;
-        if ('color' in material) {
-          color = material.color.getHex();
-        } else {
-          color = (material as any).lodColor.getHex();
-        }
-
-        originalColors.current.set(material, {
-          color,
-          transparent: material.transparent,
-          opacity: material.opacity,
-        });
-      }
-
-      material.transparent = true;
-      material.opacity = 0.6;
-      material.needsUpdate = true;
-
-      if ('color' in material) material.color.setRGB(0.2, 0.2, 0.2);
-      else (material as any).lodColor.setRGB(0.5, 0.5, 0.5);
-    }
-  };
-
-  const restoreModelMaterials = () => {
-    for (const [material, data] of originalColors.current) {
-      material.transparent = data.transparent;
-      material.opacity = data.opacity;
-      if ('color' in material) material.color.setHex(data.color);
-      else (material as any).lodColor.setHex(data.color);
-      material.needsUpdate = true;
-    }
-    originalColors.current.clear();
-  };
-
-  const handleGhost = (enable?: boolean) => {
-    if (!components) return;
-
-    const shouldEnable = enable !== undefined ? enable : !isGhost;
-
-    if (shouldEnable) {
-      if (!isGhost) {
-        setModelTransparent(components);
-        setIsGhost(true);
-      }
-    } else {
-      if (isGhost) {
-        restoreModelMaterials();
-        setIsGhost(false);
-      }
-    }
-  };
-
-  const toggleShadowScene = async () => {
-    if (!worldRef.current || !components) return;
-    const world = worldRef.current;
-    const isCurrentlyShadowed = world.scene instanceof OBC.ShadowedScene;
-    setIsShadowed(!isCurrentlyShadowed);
-    setIsShadowPanelOpen(!isCurrentlyShadowed); // Toggle panel based on new state
-    const fragments = components.get(OBC.FragmentsManager);
-    const models = Array.from(fragments.list.values());
-    const grids = components.get(OBC.Grids);
-    const grid = grids.list.get("default");
-
-    if (restListener.current && world.camera.controls) {
-      world.camera.controls.removeEventListener("rest", restListener.current);
-      restListener.current = null;
-    }
-
-    if (grid) {
-      world.scene.three.remove(grid.three);
-    }
-
-    world.scene.dispose();
-
-    if (world.scene instanceof OBC.ShadowedScene) {
-      const newScene = new OBC.SimpleScene(components);
-      world.scene = newScene;
-      newScene.setup();
-      if (world.renderer) {
-        (world.renderer as OBCF.PostproductionRenderer).three.shadowMap.enabled = false;
-      }
-      if (grid) {
-        newScene.three.add(grid.three);
-      }
-    } else {
-      const newScene = new OBC.ShadowedScene(components);
-      world.scene = newScene;
-      newScene.setup();
-      
-      if (world.renderer) {
-        const renderer = world.renderer as OBCF.PostproductionRenderer;
-        renderer.three.shadowMap.enabled = true;
-        renderer.three.shadowMap.type = THREE.PCFSoftShadowMap;
-      }
-
-      newScene.setup({
-        shadows: {
-          cascade: 1,
-          resolution: 1024,
-        },
-      });
-
-      if (grid) {
-        newScene.three.add(grid.three);
-        const gridMesh = grid.three as Mesh;
-        gridMesh.material = new MeshLambertMaterial({ color: 0x444444, side: DoubleSide });
-        newScene.distanceRenderer.excludedObjects.add(gridMesh);
-      }
-      
-      await newScene.updateShadows();
-
-      if (world.renderer) {
-        world.update();
-      }
-
-      restListener.current = async () => {
-        if (world.scene instanceof OBC.ShadowedScene) {
-            await newScene.updateShadows();
-        }
-      };
-      
-      if (world.camera.controls) {
-        world.camera.controls.addEventListener("rest", restListener.current);
-      }
-    }
-
-    for (const model of models) {
-      world.scene.three.add(model.object);
-      if (world.scene instanceof OBC.ShadowedScene) {
-        model.tiles.onItemSet.add(({ value: mesh }) => {
-          if ("isMesh" in mesh) {
-            const mat = mesh.material as THREE.MeshStandardMaterial[];
-            if (mat[0].opacity === 1) {
-              mesh.castShadow = true;
-              mesh.receiveShadow = true;
-            }
-          }
-        });
-        for (const child of model.object.children) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-        }
-      }
-    }
-    
-    if (world.scene.three instanceof THREE.Scene) {
-      world.scene.three.background = null;
-    }
-    if (cameraRef.current) {
-      cameraRef.current.updateAspect();
-    }
-  };
-
-  const handleToggleMultiSelect = () => {
-    if (!highlighterRef.current) return;
-    const isMulti = activeTool === "multi-select";
-    setActiveTool(isMulti ? null : "multi-select");
-    highlighterRef.current.zoomToSelection = isMulti;
-  };
-
-  useEffect(() => {
-    if (!components || !worldRef.current) return;
-
-    // This part is the "setup" for the current activeTool
-    if (activeTool === "clipper") {
-        if (clipperRef.current) clipperRef.current.enabled = true;
-        if (highlighterRef.current) highlighterRef.current.enabled = false;
-    } else if (activeTool === "length") {
-        if (!measurerRef.current) {
-            const length = components.get(OBCF.LengthMeasurement);
-            length.world = worldRef.current;
-            length.color = new Color("#494cb6");
-            measurerRef.current = length;
-        }
-        measurerRef.current.enabled = true;
-        if (highlighterRef.current) highlighterRef.current.enabled = false;
-    } else if (activeTool === "area") {
-        if (!areaMeasurerRef.current) {
-            const area = components.get(OBCF.AreaMeasurement);
-            area.world = worldRef.current;
-            area.color = new Color("#494cb6");
-            areaMeasurerRef.current = area;
-        }
-        areaMeasurerRef.current.enabled = true;
-        if (highlighterRef.current) highlighterRef.current.enabled = false;
-    } else if (activeTool === "multi-select") {
-        if (highlighterRef.current) highlighterRef.current.zoomToSelection = false;
-    } else {
-        // No tool is active
-        if (highlighterRef.current) highlighterRef.current.zoomToSelection = true;
-    }
-
-    // This is the cleanup function. It will run when activeTool changes again,
-    // or when the component unmounts. It captures the value of `activeTool` from its render.
-    return () => {
-        if (activeTool === "clipper" && clipperRef.current) {
-            clipperRef.current.enabled = false;
-            clipperRef.current.list.clear();
-        } else if (activeTool === "length" && measurerRef.current) {
-            measurerRef.current.create();
-            measurerRef.current.list.clear();
-            measurerRef.current.enabled = false;
-        } else if (activeTool === "area" && areaMeasurerRef.current) {
-            areaMeasurerRef.current.endCreation();
-            areaMeasurerRef.current.list.clear();
-            areaMeasurerRef.current.enabled = false;
-        }
-        // When any tool is deactivated, we should restore the highlighter
-        if (highlighterRef.current) {
-            highlighterRef.current.enabled = true;
-        }
-    };
-  }, [activeTool, components]);
-
-  useEffect(() => {
-    if (measurerRef.current) {
-      measurerRef.current.mode = lengthMode;
-    }
-  }, [lengthMode]);
-
-  useEffect(() => {
-    if (areaMeasurerRef.current) {
-      areaMeasurerRef.current.mode = areaMode;
-    }
-  }, [areaMode]);
-
-  const handleMeasurementCreate = () => {
-    if (activeTool === "length" && measurerRef.current?.enabled) {
-      measurerRef.current.create();
-    } else if (activeTool === "area" && areaMeasurerRef.current?.enabled) {
-      areaMeasurerRef.current.endCreation();
-    }
-  };
-
-  const handleMeasurementDelete = () => {
-    if (activeTool === "length" && measurerRef.current?.enabled) {
-      measurerRef.current.delete();
-    } else if (activeTool === "area" && areaMeasurerRef.current?.enabled) {
-      areaMeasurerRef.current.delete();
-    }
-  };
-
-
-  useEffect(() => {
-    const viewer = viewerRef.current;
-    if (!viewer || !worldRef.current) return;
-
-    const handleDblClick = () => {
-      if (activeTool === "clipper" && clipperRef.current?.enabled) {
-        if (worldRef.current) {
-          clipperRef.current.create(worldRef.current);
-        }
-      } else if (activeTool === "length" && measurerRef.current?.enabled) {
-        measurerRef.current.create();
-      } else if (activeTool === "area" && areaMeasurerRef.current?.enabled) {
-        areaMeasurerRef.current.create();
-      }
-    };
-
-    viewer.addEventListener("dblclick", handleDblClick);
-
-    const handlePointerDown = (event: PointerEvent) => {
-      if (activeTool !== "clipper" || !clipperRef.current || !worldRef.current) return;
-      startPosition.current = { x: event.clientX, y: event.clientY };
-
-      longPressTimeout.current = setTimeout(() => {
-        // If a long press is detected and the clipper is active, delete the plane.
-        if (clipperRef.current && clipperRef.current.list.size > 0 && worldRef.current) {
-          clipperRef.current.delete(worldRef.current);
-        }
-        longPressTimeout.current = null;
-      }, 500);
-    };
-
-    const handlePointerMove = (event: PointerEvent) => {
-      if (longPressTimeout.current && startPosition.current) {
-        const dx = Math.abs(event.clientX - startPosition.current.x);
-        const dy = Math.abs(event.clientY - startPosition.current.y);
-        if (dx > 10 || dy > 10) {
-          clearTimeout(longPressTimeout.current);
-          longPressTimeout.current = null;
-        }
-      }
-    };
-
-    const handlePointerUp = () => {
-      if (longPressTimeout.current) {
-        clearTimeout(longPressTimeout.current);
-        longPressTimeout.current = null;
-      }
-    };
-
-    const handleContextMenu = (event: MouseEvent) => {
-      event.preventDefault();
-    };
-
-    viewer.addEventListener("pointerdown", handlePointerDown);
-    viewer.addEventListener("pointermove", handlePointerMove);
-    viewer.addEventListener("pointerup", handlePointerUp);
-    viewer.addEventListener("contextmenu", handleContextMenu);
-
-    return () => {
-      viewer.removeEventListener("dblclick", handleDblClick);
-      viewer.removeEventListener("pointerdown", handlePointerDown);
-      viewer.removeEventListener("pointermove", handlePointerMove);
-      viewer.removeEventListener("pointerup", handlePointerUp);
-      viewer.removeEventListener("contextmenu", handleContextMenu);
-      if (longPressTimeout.current) {
-        clearTimeout(longPressTimeout.current);
-      }
-    };
-  }, [activeTool]);
-
   return (
     <div className={`relative h-dvh w-screen overflow-hidden ${darkMode ? 'bg-custom-zinc-900 bg-main-gradient text-white' : 'bg-white text-gray-800'}`}>
-      {/* Header */}
-      <div className={`absolute top-0 left-0 right-0 z-20 flex justify-between items-center p-2 ${darkMode ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-800'}`}>
-        <button onClick={() => setIsUserPanelOpen(!isUserPanelOpen)} className="p-1 rounded-full">
-          {user?.avatar ? (
-            <Image src={user.avatar} alt="User Avatar" width={48} height={48} className="rounded-full" />
-          ) : (
-            <Avatar isBordered color="danger" src="" />
-          )}
-        </button>
-        <div className="p-1 flex justify-center">
-          <Image src="/Type=Full.svg" alt="Type Full" width={153.7} height={48} className={darkMode ? "brightness-0 invert" : ""} />
-        </div>
-        <ThemeSwitch darkMode={darkMode} toggleTheme={toggleTheme} />
-      </div>
+      {/* Search Bars Area */}
+      <div className="absolute top-22 left-0 w-full z-40 flex justify-center px-2 pointer-events-none">
 
-      {/* User Panel */}
-      <div className={`absolute top-0 left-0 h-full w-80 z-30 transition-transform duration-300 ${isUserPanelOpen ? 'translate-x-0' : '-translate-x-full'} ${darkMode ? "bg-gray-800" : "bg-zinc-200"}`}>
-        {isUserPanelOpen && (
-          <UserPanel
-            languageSwitcher={<LanguageSwitch />}
-            handleLogout={handleLogout}
-            setShowLoginModal={setShowLoginModal}
-            onClose={() => setIsUserPanelOpen(false)}
-          />
+        {/* Back Button */}
+        {SearchResultMode && (
+          <div className="pointer-events-auto absolute left-4">
+            <button onClick={handleBackToSearch} className="p-3 rounded-full bg-white/90 dark:bg-gray-800/90 shadow-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 transition-all hover:scale-110 active:scale-95">
+              <ArrowLeft size={24} />
+            </button>
+          </div>
+        )}
+
+        {/* Right Button (Open Repair Menu) - Style Matched to Left Button */}
+        {SearchResultMode && (
+          <div className="pointer-events-auto absolute right-4">
+            <button 
+              onClick={() => {
+                setIsQRScannerOpen(true);
+                setShowRepairButton(true);
+              }} 
+              className="p-3 rounded-full bg-white/90 dark:bg-gray-800/90 shadow-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 transition-all hover:scale-110 active:scale-95"
+            >
+              <ArrowRight size={24} />
+            </button>
+          </div>
+        )}
+
+        {/* Element Name Search */}
+        {!SearchResultMode && activeSearchMode === 'element' && (
+          <div className="pointer-events-auto flex items-center gap-1 bg-white/90 dark:bg-gray-800/90 p-2 rounded-lg backdrop-blur-md shadow-lg border border-gray-200 dark:border-gray-700 w-full max-w-xs animate-in slide-in-from-bottom-2 fade-in duration-200">
+              <input type="text" placeholder="Search Element Name..." className="bg-transparent border-none outline-none text-sm w-full text-gray-700 dark:text-gray-200 placeholder-gray-400 pl-1" value={elementSearchTerm} onChange={(e) => setElementSearchTerm(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLocateElementByName()} autoFocus />
+              <button onClick={handleLocateElementByName} className="p-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white transition-colors"><Search size={16} /></button>
+          </div>
+        )}
+
+        {/* Issue ID Search */}
+        {!SearchResultMode && activeSearchMode === 'issue' && (
+          <div className="pointer-events-auto flex items-center gap-1 bg-white/90 dark:bg-gray-800/90 p-2 rounded-lg backdrop-blur-md shadow-lg border border-gray-200 dark:border-gray-700 w-full max-w-xs animate-in slide-in-from-bottom-2 fade-in duration-200">
+            <input type="text" placeholder="Search Issue ID..." className="bg-transparent border-none outline-none text-sm w-full text-gray-700 dark:text-gray-200 placeholder-gray-400 pl-1" value={issueIdSearchTerm} onChange={(e) => setIssueIdSearchTerm(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLocateIssueById()} autoFocus />
+            <button onClick={handleLocateIssueById} className="p-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white transition-colors"><Search size={16} /></button>
+          </div>
         )}
       </div>
-      {isUserPanelOpen && <div onClick={() => setIsUserPanelOpen(false)} className="absolute inset-0 bg-black/50 z-20" />}
 
       {/* Viewer */}
-      <div
-        ref={viewerRef}
-        className="h-full w-full"
-        style={{
-          WebkitTouchCallout: 'none',
-          WebkitUserSelect: 'none'
-        }}
-      />
-
-      {/* Side Panel Toggle */}
-      <MobileSidePanelToggle
-        selectedPanel={selectedSidePanel}
-        onPanelSelect={setSelectedSidePanel}
-        onTogglePanel={() => setIsSidePanelOpen(!isSidePanelOpen)}
-        isPanelOpen={isSidePanelOpen}
-      />
-
-      {/* Side Panel Content */}
-      <div className={`absolute top-0 right-0 w-80 z-10 transition-transform duration-300 ${isSidePanelOpen ? 'translate-x-0' : 'translate-x-full'} ${darkMode ? "bg-gray-800/80" : "bg-zinc-200/80"} backdrop-blur-sm p-4 overflow-y-auto`} style={{ paddingTop: '72px', height: 'calc(100% - 3rem)' }}>
-        {selectedSidePanel === 'home' && components &&
-          <HomePanel
-              ref={searchElementRef}
-              components={components!}
-              darkMode={darkMode}
-              onClose={() => {
-                setIsSearchOpen(false);
-                setActiveTool(null);
-                setIsAddingToGroup(false);
-                setActiveAddGroupId(null);
-              }}
-              onToggleAddMode={handleToggleAddMode}
-              uploadedModels={uploadedModels}
-              setUploadedModels={setUploadedModels}
-              handleAssignModelToGroup={handleAssignModelToGroup}
-              onModelGroupFilterChange={setCurrentModelGroupId}
-              fetchR2Models={fetchR2Models}
-              loadR2ModelIntoViewer={loadR2ModelIntoViewer}
-              fragmentsRef={fragmentsRef}
-              worldRef={worldRef}
-              mainDisplayGroupId={mainDisplayGroupId}
-              setMainDisplayGroupId={setMainDisplayGroupId}
-            />}
-        {selectedSidePanel === 'search' && components &&
-          <MobileSearchPanel
-            components={components}
-            isGhost={isGhost}
-            onGhostChange={handleGhost}
-            darkMode={darkMode}
-            loadedModelIds={Array.from(fragmentsRef.current?.list.keys() || [])}
-          />}
-        {selectedSidePanel === 'floor' && components &&
-          <FloorPlan
-            onSelectFloor={(floor) => console.log("Selected floor:", floor)}
-          />}
-        {selectedSidePanel === 'assets' && components && <AssetsPanel />}
-      </div>
+      <div ref={viewerRef} className="h-full w-full" style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }} />
 
       {/* Bottom Bar */}
-      <div className="absolute bottom-0 left-0 right-0 z-10">
-        {components && (
-          <MobileActionButtons
-            components={components}
-            darkMode={darkMode}
-            onToggleVisibility={onToggleVisibility}
-            onIsolate={onIsolate}
-            onFocus={onFocus}
-            onShow={onShow}
-            onGhost={handleGhost}
-            isGhost={isGhost}
-            onToggleShadowScene={toggleShadowScene}
-            isShadowed={isShadowed}
-            activeTool={activeTool}
-            onSelectTool={(tool) => {
-              setActiveTool(prevTool => (prevTool === tool ? null : tool));
-            }}
-            onToggleInfo={() => setIsInfoOpen(!isInfoOpen)}
-            isInfoOpen={isInfoOpen}
-            isMultiSelectActive={activeTool === "multi-select"}
-            lengthMode={lengthMode}
-            setLengthMode={setLengthMode}
-            areaMode={areaMode}
-            setAreaMode={setAreaMode}
-            onMeasurementCreate={handleMeasurementCreate}
-            onMeasurementDelete={handleMeasurementDelete}
-          />
-        )}
-        {/* Footer */}
-        <footer className={`p-1 flex justify-center items-center text-xs ${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
-          <span>v1.2.4 | © 2025 Gomore</span>
-        </footer>
-      </div>
-
-      {/* Info Panel */}
-      {components && (
-        <div className={`absolute bottom-0 left-0 right-0 h-[50%] z-20 transform transition-transform duration-300 ${isInfoOpen ? 'translate-y-0' : 'translate-y-full'} ${darkMode ? 'bg-gray-800/90 border-t border-gray-700' : 'bg-white/90 border-t border-gray-200'} backdrop-blur-sm rounded-t-lg shadow-lg overflow-hidden`}>
-          <IFCInfoPanel
-            components={components}
-            darkMode={darkMode}
-            infoLoading={infoLoading}
-            modelId={selectedModelId}
-            localId={selectedLocalId}
-            attrs={selectedAttrs}
-            psets={selectedPsets}
-            rawPsets={rawPsets}
-            onClose={() => setIsInfoOpen(false)}
-            qrCodeData={qrCodeData}
-            isMultiSelectActive={activeTool === "multi-select"}
-          />
+      {!SearchResultMode && (
+        <div className="absolute bottom-0 left-0 right-0 z-10">
+          {components && (
+            <MobileActionButtons
+              components={components}
+              darkMode={darkMode}
+              activeSearchMode={activeSearchMode}
+              onSetSearchMode={setActiveSearchMode}
+              onScanQR={() => {
+                setIsQRScannerOpen(true);
+                setShowRepairButton(false);
+              }}
+            />
+          )}
         </div>
       )}
 
-      {/* Shadow Scene Panel */}
-      {components && (
-        <div className={`absolute bottom-0 left-0 right-0 h-[50%] z-20 transform transition-transform duration-300 ${isShadowPanelOpen ? 'translate-y-0' : 'translate-y-full'} ${darkMode ? 'bg-gray-800/90 border-t border-gray-700' : 'bg-white/90 border-t border-gray-200'} backdrop-blur-sm rounded-t-lg shadow-lg overflow-hidden p-4`}>
-          <ShadowScenePanel components={components} onClose={() => setIsShadowPanelOpen(false)} />
+      {/* Viewpoints Panel */}
+      {SearchResultMode && components && (
+        <div className={`absolute bottom-0 left-0 right-0 z-20 p-4 rounded-t-xl shadow-xl transition-transform duration-300 ${darkMode ? 'bg-gray-900 border-t border-gray-700' : 'bg-white border-t border-gray-200'}`} style={{ height: '40vh' }}>
+          <Viewpoints
+            darkMode={darkMode}
+            createViewpoint={createViewpoint}
+            updateViewpointCamera={updateViewpointCamera}
+            setWorldCamera={setWorldCamera}
+            getViewpointSnapshotData={getViewpointSnapshotData}
+            storedViews={storedViews}
+            setStoredViews={setStoredViews}
+          />
         </div>
+      )}
+      
+      {/* QR Scanner & Repair Button Overlay */}
+      {isQRScannerOpen && (
+        <>
+          <QRScannerModal 
+            onClose={() => setIsQRScannerOpen(false)} 
+            onScan={handleQRScan} 
+            darkMode={darkMode} 
+          />
+          {showRepairButton && (
+              <div className="fixed bottom-[5%] left-0 right-0 z-[60] flex justify-center pointer-events-auto">
+                  <button 
+                    onClick={handleIssueForms}
+                    className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-full shadow-2xl font-bold text-lg transition-transform active:scale-95"
+                  >
+                    <BookAlert size={24} />
+                    報修表單
+                  </button>
+              </div>
+            )}
+        </>
       )}
 
       <LoadingModal darkMode={darkMode} progress={progress} show={showProgressModal} />
-
-      {showLoginModal && (
-        <LoginModal
-          onClose={() => setShowLoginModal(false)}
-          onSwitchToRegister={() => {
-            setShowLoginModal(false);
-            setShowRegisterModal(true);
-          }}
-        />
-      )}
-
-      {showRegisterModal && (
-        <RegisterModal
-          onClose={() => setShowRegisterModal(false)}
-          onSwitchToLogin={() => {
-            setShowRegisterModal(false);
-            setShowLoginModal(true);
-          }}
-        />
-      )}
     </div>
   );
 };
