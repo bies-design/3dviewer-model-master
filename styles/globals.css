@@ -32,7 +32,7 @@
       linear-gradient(to top, #2BC3EC 2px, transparent 2px) 100% 100%;
 
     background-repeat: no-repeat;
-    background-size: 8px 8px; /* 控制 L 型邊框的大小，對應你原本的 w-2 h-2 */
+    background-size: 8px 8px; 
   }
 
 }

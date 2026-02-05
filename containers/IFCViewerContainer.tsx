@@ -564,7 +564,7 @@ export default function IFCViewerContainer() {
     fetchR2Models();
   }, [fetchR2Models]);
 
-  // ✅ 新增：當 uploadedModels 有資料時，自動載入它們到 Viewer
+  // 當 uploadedModels 有資料時，自動載入它們到 Viewer
 useEffect(() => {
   // 1. 檢查 Viewer 核心是否準備好
   if (!componentsRef.current || !fragmentsRef.current || !worldRef.current) return;
@@ -589,7 +589,7 @@ useEffect(() => {
       return;
     }
 
-    // --- [新增] 開啟進度條 ---
+    // --- 開啟進度條 ---
     setShowProgressModal(true);
     setProgress(0);
 
@@ -604,7 +604,7 @@ useEffect(() => {
       if (!isLoaded && model.r2FileName) {
         try {
           await loadR2ModelIntoViewer(model.r2FileName, (modelProgress) => {
-            // --- [新增] 計算總體進度 ---
+            // --- 計算總體進度 ---
             // 公式：(已經載入完的模型數量 * 100 + 當前正在載入的模型進度) / 總模型數量
             const overallProgress = ((loadedCount * 100) + modelProgress) / totalModels;
             setProgress(Math.round(overallProgress));
@@ -3406,22 +3406,6 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                     >
                       <Box size={20} className={`${viewMode === "device" ? "text-white" : "text-gray-500"}`}/>
                     </Switch>
-                    {/* <button
-                      onClick={() => {
-                        if(viewMode === 'device') {
-                          handleSwitchViewMode('floor');
-                        }else{
-                          handleSwitchViewMode('device');
-                        }
-                      }}
-                      className={`px-9  py-1 transition-all duration-200 border-r-1 border-[#2EC2EA] ${
-                        viewMode === 'device'
-                          ? "bg-[#2EC2EA] text-white scale-110"
-                          : "text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-                      }`}
-                    >
-                      
-                    </button> */}
                   </Tooltip>
                   {/* hvac按鈕 */}
                   <Tooltip content={selectedFloor ? "顯示暖通空調 (HVAC)" : `請先選擇一個樓層`} placement="bottom">
@@ -3575,6 +3559,8 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                     <div className={`h-full w-full overflow-hidden }`}>
                       <FloorModePanel
                         components={components}
+                        outlinerRef={outlinerRef}
+                        markerRef={markerRef}
                         darkMode={darkMode}
                         handleSwitchViewMode={handleSwitchViewMode}
                         onFocus={onFocus}

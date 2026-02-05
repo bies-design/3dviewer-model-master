@@ -1,21 +1,12 @@
 "use client";
 
 import React,{useMemo,useState} from "react";
-import { Card, Tabs, Tab } from "@heroui/react";
-import {Pie,Cell,PieChart, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area } from "recharts";
+import { Card } from "@heroui/react";
+import {Pie,Cell,PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 interface LeftsideDataPanelProps {
   darkMode: boolean;
 }
-
-const usage = [
-  {instant: 10, daily: 1010, monthly: 11121, yearly: 111121},
-];
-const pieData = [
-  { name: "製程系統(含電熱製程)", value: 69.6, color: "#ef4444" },
-  { name: "照明系統", value: 20.2, color: "#eab308" },
-  { name: "其他系統", value: 10.1, color: "#22d3ee" },
-];
 
 const softPalette = [
   "#60A5FA", // 柔和藍
@@ -141,7 +132,7 @@ const LeftsideDataPanel: React.FC<LeftsideDataPanelProps> = ({ darkMode }) => {
           </div>
         </div> 
 
-      {/* 3. 中段修改：將下拉選單與計算後的資料放入 */}
+      {/* 中段：下拉選單與計算後的資料 */}
       <Card className={`rounded-none hud-panel h-[30%] p-4 pointer-events-auto relative overflow-hidden ${darkMode ? 'bg-transparent' : 'bg-white/60'}`}>
         
         {/* 標題與選單區塊 */}

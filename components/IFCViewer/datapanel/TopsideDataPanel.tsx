@@ -88,7 +88,7 @@ const TopsideDataPanel: React.FC<TopsideDataPanelProps> = ({ darkMode, onFocus})
               <button
                 type="button"
                 onClick={() => window.location.href="https://tecomcnm.push-server.info/moduleList"}
-                className={`rounded-lg shadow-lg transition-all duration-300 ${
+                className={`rounded-lg shadow-lg ${
                   darkMode
                     ? "bg-transparent text-[#2EC2EA]"
                     : " hover:bg-indigo-600 border border-indigo-400"

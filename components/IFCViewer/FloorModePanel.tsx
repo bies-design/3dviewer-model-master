@@ -13,6 +13,8 @@ type FocusMode = 'top-down' | 'isometric' | 'tight-fit';
 
 interface FloorModePanelProps {
     components: OBC.Components;
+    outlinerRef: React.MutableRefObject<OBCF.Outliner| null>;
+    markerRef: React.MutableRefObject<OBCF.Marker | null>;
     darkMode: boolean;
     onFocus: (mode?: FocusMode) => Promise<void>;
     handleSwitchViewMode: (mode: "global" | "allfloors" | "floor" | "device" | "warnings" | "issueforms") => Promise<void>;
@@ -40,6 +42,8 @@ type TResultItem = {
 
 const FloorModePanel: React.FC<FloorModePanelProps> = ({
     components,
+    markerRef,
+    outlinerRef,
     darkMode,
     loadedModelIds,
     handleSwitchViewMode,
@@ -50,7 +54,7 @@ const FloorModePanel: React.FC<FloorModePanelProps> = ({
 }) => {
 
 const { selectedFloor, setSelectedFloor, viewMode,selectedDevice, setSelectedDevice , setSelectedFragId, setSelectedDeviceName,
-        setIsGlobalLoading,setLoadingMessage
+        setIsGlobalLoading,setLoadingMessage,setIsCCTVOn,setIsHVACOn,setIsEACOn
         } = useAppContext(); 
 
 const [availableFloors, setAvailableFloors] = useState<string[]>([]);
@@ -357,13 +361,14 @@ const floorHighlightHandler = useCallback(async (selection: OBC.ModelIdMap) => {
 
     console.log("現在的viewmode是",viewModeRef.current);
     // if(viewModeRef.current === 'device') return;
+    
+    // // 若上面marker.dispose()沒有刪好 這段強制清除所有幽靈標記
+    // const existingMarkers = document.querySelectorAll('.bim-marker-label');
+    // existingMarkers.forEach((el) => {
+    //     el.remove();
+    // });
 
-    // 若上面marker.dispose()沒有刪好 這段強制清除所有幽靈標記
-    const existingMarkers = document.querySelectorAll('.bim-marker-label');
-    existingMarkers.forEach((el) => {
-        el.remove();
-    });
-
+    
     const hider = components.get(OBC.Hider);
     if (!Object.keys(selection).length) return;
         
@@ -404,6 +409,13 @@ const floorHighlightHandler = useCallback(async (selection: OBC.ModelIdMap) => {
 
         console.log("清理畫面上所有標記");
 
+        markerRef.current?.dispose();
+        outlinerRef.current?.dispose();
+
+        setIsCCTVOn(false);
+        setIsEACOn(false);
+        setIsHVACOn(false);
+        
 
         if (setSelectedDevice) setSelectedDevice(expressId);
         if (setSelectedFragId) setSelectedFragId(modelId[0]);
