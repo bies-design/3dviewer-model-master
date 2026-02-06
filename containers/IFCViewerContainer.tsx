@@ -303,7 +303,7 @@ export default function IFCViewerContainer() {
   }, [fetchR2Models]);
 
   const loadR2ModelIntoViewer = useCallback(async (r2FileName: string, onProgress: (progress: number) => void) => {
-    if (!isViewerReady || !fragmentsRef.current || !worldRef.current) return;
+    if (!fragmentsRef.current || !worldRef.current) return;
 
     try {
       console.log(`Loading model ${r2FileName} from R2 into viewer...`);
@@ -362,10 +362,10 @@ export default function IFCViewerContainer() {
         if (existingModelIndex > -1) {
           // Update existing model with new data if needed
           const updated = [...prev];
-          updated[existingModelIndex] = { ...updated[existingModelIndex], id: modelId, data: arrayBuffer };
+          updated[existingModelIndex] = { ...updated[existingModelIndex], id: modelId };
           return updated;
         }
-        return [...prev, { id: modelId, name: r2FileName, type: "frag", data: arrayBuffer, r2FileName }];
+        return [...prev, { id: modelId, name: r2FileName, type: "frag", r2FileName }];
       });
 
       // Check if elements exist for this model
@@ -397,7 +397,7 @@ export default function IFCViewerContainer() {
         console.log(`Elements for model ${modelId} already exist in DB. Skipping extraction.`);
       }
 
-      await loadCategoriesFromAllModels();
+      // await loadCategoriesFromAllModels();
 
     } catch (error) {
       console.error(`Failed to load model ${r2FileName} from R2 into viewer:`, error);
@@ -405,7 +405,7 @@ export default function IFCViewerContainer() {
     } finally {
       // No progress modal control here
     }
-  }, [isViewerReady,fragmentsRef, worldRef, setUploadedModels]);
+  }, [fragmentsRef, worldRef, setUploadedModels]);
 
   const handleDownloadFromDB = async (fileName: string) => {
     setShowDownloadProgress(true);
@@ -480,7 +480,7 @@ export default function IFCViewerContainer() {
 
       setTimeout(() => {
         setShowDownloadProgress(false);
-      }, 3000);
+      }, 1000);
 
     } catch (error) {
       console.error('Failed to download file:', error);
@@ -543,86 +543,181 @@ export default function IFCViewerContainer() {
   }, [fetchR2Models]);
 
   // 當 uploadedModels 有資料時，自動載入它們到 Viewer
-useEffect(() => {
-  // 1. 檢查 Viewer 核心是否準備好
-  if (!componentsRef.current || !fragmentsRef.current || !worldRef.current) return;
+// useEffect(() => {
+//   // 1. 檢查 Viewer 核心是否準備好
+//   if (!componentsRef.current || !fragmentsRef.current || !worldRef.current) return;
   
-  // 2. 檢查是否已經自動載入過 (避免重複執行)
-  if (hasAutoLoadedModels) return;
+//   // 2. 檢查是否已經自動載入過 (避免重複執行)
+//   if (hasAutoLoadedModels) return;
 
-  // 3. 檢查是否有模型資料
+//   // 3. 檢查是否有模型資料
+//   if (uploadedModels.length === 0) return;
+
+//   const autoLoadSequence = async () => {
+//     console.log("🚀 自動載入程序啟動...");
+    
+//     // 鎖定狀態，避免重複跑
+//     setHasAutoLoadedModels(true); 
+
+//     // 過濾出有效的 R2 模型 (排除沒有 r2FileName 的)
+//     const r2Models = uploadedModels.filter(m => m.r2FileName);
+
+//     if (r2Models.length === 0) {
+//       console.log("沒有 R2 模型需要載入");
+//       return;
+//     }
+
+//     // --- 開啟進度條 ---
+//     setShowProgressModal(true);
+//     setProgress(0);
+
+//     const totalModels = r2Models.length;
+//     let loadedCount = 0;
+
+//     // 依序載入模型
+//     for (const model of r2Models) {
+//       // 檢查場景中是否已經有這個模型 (防止重複)
+//       const isLoaded = fragmentsRef.current?.list.has(model.r2FileName);
+      
+//       if (!isLoaded && model.r2FileName) {
+//         try {
+//           await loadR2ModelIntoViewer(model.r2FileName, (modelProgress) => {
+//             // --- 計算總體進度 ---
+//             // 公式：(已經載入完的模型數量 * 100 + 當前正在載入的模型進度) / 總模型數量
+//             const overallProgress = ((loadedCount * 100) + modelProgress) / totalModels;
+//             setProgress(Math.round(overallProgress));
+            
+//             // console.log(`正在載入 ${model.name}: ${modelProgress.toFixed(0)}% (總進度: ${overallProgress.toFixed(0)}%)`);
+//           });
+//         } catch (err) {
+//           console.error(`載入模型失敗: ${model.name}`, err);
+//           setToast({ message: `Failed to load ${model.name}`, type: "error" });
+//         }
+//       }
+//       // 每處理完一個模型，計數器 +1
+//       loadedCount++;
+//     }
+
+//     console.log("✅ 所有模型自動載入完成，開始計算中心點...");
+    
+//     setProgress(100);
+//     // 獲取所有模型的中點和Box3
+
+//     // setTimeout(async () => {
+//     //   await getAllCenterAndBox3();
+
+//     // }, 1000);
+
+//     onFocus('isometric');
+//     console.log("結束了 所以我聚焦一次");
+//     setShowProgressModal(false);
+
+//   };
+
+//   // 稍微延遲一點點，確保 Viewer DOM 已經完全穩定
+//   const timer = setTimeout(() => {
+//     autoLoadSequence();
+//   }, 500);
+
+//     return () => clearTimeout(timer);
+  
+//     // 記得要把這些依賴加進去，確保 useEffect 能讀到最新的函式
+//   }, [uploadedModels, hasAutoLoadedModels, componentsRef.current, setShowProgressModal, setProgress, setToast, loadR2ModelIntoViewer]);
+
+useEffect(() => {
+  if (!isViewerReady || !componentsRef.current || !fragmentsRef.current || !worldRef.current) return;
+  if (hasAutoLoadedModels) return;
   if (uploadedModels.length === 0) return;
 
   const autoLoadSequence = async () => {
-    console.log("🚀 自動載入程序啟動...");
-    
-    // 鎖定狀態，避免重複跑
-    setHasAutoLoadedModels(true); 
+    console.log("🚀 啟動大檔案序列載入程序...");
+    setHasAutoLoadedModels(true);
 
-    // 過濾出有效的 R2 模型 (排除沒有 r2FileName 的)
-    const r2Models = uploadedModels.filter(m => m.r2FileName);
+    const modelsToLoad = uploadedModels.filter(m => 
+      m.r2FileName && !fragmentsRef.current?.list.has(m.r2FileName)
+    );
 
-    if (r2Models.length === 0) {
-      console.log("沒有 R2 模型需要載入");
-      return;
-    }
+    if (modelsToLoad.length === 0) return;
 
-    // --- 開啟進度條 ---
     setShowProgressModal(true);
     setProgress(0);
 
-    const totalModels = r2Models.length;
-    let loadedCount = 0;
+    // 進度追蹤
+    const progressMap = new Map<string, number>();
+    modelsToLoad.forEach(m => progressMap.set(m.r2FileName!, 0));
 
-    // 依序載入模型
-    for (const model of r2Models) {
-      // 檢查場景中是否已經有這個模型 (防止重複)
-      const isLoaded = fragmentsRef.current?.list.has(model.r2FileName);
+    // 更新 UI 的輔助函式
+    const updateUI = () => {
+      let total = 0;
+      progressMap.forEach(v => total += v);
+      setProgress(Math.round(total / modelsToLoad.length));
+    };
+
+    // --- 核心邏輯：並發控制 ---
+    // 設定最大同時下載數量。
+    // 針對 500MB 的檔案，強烈建議設為 1，頂多 2。
+    const MAX_CONCURRENCY = 6; 
+    
+    let activeCount = 0;
+    let index = 0;
+
+    const loadNext = async (): Promise<void> => {
+      // 遞迴結束條件
+      if (index >= modelsToLoad.length) return;
+
+      // 取出當前要處理的模型
+      const currentIndex = index++; 
+      const model = modelsToLoad[currentIndex];
       
-      if (!isLoaded && model.r2FileName) {
-        try {
-          await loadR2ModelIntoViewer(model.r2FileName, (modelProgress) => {
-            // --- 計算總體進度 ---
-            // 公式：(已經載入完的模型數量 * 100 + 當前正在載入的模型進度) / 總模型數量
-            const overallProgress = ((loadedCount * 100) + modelProgress) / totalModels;
-            setProgress(Math.round(overallProgress));
-            
-            // console.log(`正在載入 ${model.name}: ${modelProgress.toFixed(0)}% (總進度: ${overallProgress.toFixed(0)}%)`);
-          });
-        } catch (err) {
-          console.error(`載入模型失敗: ${model.name}`, err);
-          setToast({ message: `Failed to load ${model.name}`, type: "error" });
-        }
+      try {
+        activeCount++;
+        // console.log(`開始下載第 ${currentIndex + 1} 個: ${model.name}`);
+        
+        await loadR2ModelIntoViewer(model.r2FileName!, (val) => {
+          progressMap.set(model.r2FileName!, val);
+          // 為了效能，不要每個封包都更新 React State，可以加個簡單的節流，或直接更新
+          // 這裡簡化直接更新
+          updateUI();
+        });
+
+        // ★★★ 關鍵記憶體優化 ★★★
+        // 在 loadR2ModelIntoViewer 內部，當 ArrayBuffer 轉交給 fragments.load 後
+        // 確保你沒有在任何變數保留那個 ArrayBuffer 的參照，這樣 GC 才能回收它。
+        
+      } catch (err) {
+        console.error(`模型 ${model.name} 載入失敗`, err);
+        // 失敗也算 100% 以免進度條卡住
+        progressMap.set(model.r2FileName!, 100);
+        updateUI();
+      } finally {
+        activeCount--;
+        // 遞迴呼叫：一個結束了，就拉下一個進來執行
+        await loadNext();
       }
-      // 每處理完一個模型，計數器 +1
-      loadedCount++;
+    };
+
+    // 啟動初始的 N 個任務
+    const initialPromises = [];
+    for (let i = 0; i < MAX_CONCURRENCY && i < modelsToLoad.length; i++) {
+      initialPromises.push(loadNext());
     }
 
-    console.log("✅ 所有模型自動載入完成，開始計算中心點...");
-    
+    // 等待所有任務鏈結束
+    await Promise.all(initialPromises);
+
+    console.log("✅ 所有大模型載入完成");
     setProgress(100);
-    // 獲取所有模型的中點和Box3
-
-    // setTimeout(async () => {
-    //   await getAllCenterAndBox3();
-
-    // }, 1000);
-
-    onFocus('isometric');
-    console.log("結束了 所以我聚焦一次");
-    setShowProgressModal(false);
-
+    
+    // 稍微延遲讓記憶體穩定後再聚焦
+    setTimeout(() => {
+        onFocus('isometric');
+        setShowProgressModal(false);
+    }, 500);
   };
 
-  // 稍微延遲一點點，確保 Viewer DOM 已經完全穩定
-  const timer = setTimeout(() => {
-    autoLoadSequence();
-  }, 500);
+  autoLoadSequence();
 
-    return () => clearTimeout(timer);
-  
-    // 記得要把這些依賴加進去，確保 useEffect 能讀到最新的函式
-  }, [uploadedModels, hasAutoLoadedModels, componentsRef.current, setShowProgressModal, setProgress, setToast, loadR2ModelIntoViewer]);
+}, [uploadedModels, hasAutoLoadedModels, isViewerReady]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -670,8 +765,8 @@ useEffect(() => {
       scene.three.background = null;
 
       // axes x y z軸線
-      // const axesHelper = new THREE.AxesHelper(500); // 參數 5 代表軸線長度
-      // world.scene.three.add(axesHelper);
+      const axesHelper = new THREE.AxesHelper(500); // 參數 5 代表軸線長度
+      world.scene.three.add(axesHelper);
 
       const hdriLoader = new RGBELoader();
       hdriLoader.load(
@@ -1173,58 +1268,58 @@ useEffect(() => {
     };
     */
 
-    const loadModelFromR2 = async () => {
-      if (!fragmentsRef.current) return;
-      setShowProgressModal(true);
-      setProgress(0);
+    // const loadModelFromR2 = async () => {
+    //   if (!fragmentsRef.current) return;
+    //   setShowProgressModal(true);
+    //   setProgress(0);
 
-      let simulatedProgress = 0;
-      const progressInterval = setInterval(() => {
-        simulatedProgress += Math.random() * 8;
-        if (simulatedProgress >= 98) simulatedProgress = 98;
-        setProgress(Math.floor(simulatedProgress));
-      }, 180);
+    //   let simulatedProgress = 0;
+    //   const progressInterval = setInterval(() => {
+    //     simulatedProgress += Math.random() * 8;
+    //     if (simulatedProgress >= 98) simulatedProgress = 98;
+    //     setProgress(Math.floor(simulatedProgress));
+    //   }, 180);
 
-      try {
-        console.log("Loading model from R2...");
-        const downloadResponse = await fetch('/api/models/r2-upload/download', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fileName: '2024.04.18合併簡化-1V2.frag' }),
-        });
+    //   try {
+    //     console.log("Loading model from R2...");
+    //     const downloadResponse = await fetch('/api/models/r2-upload/download', {
+    //       method: 'POST',
+    //       headers: { 'Content-Type': 'application/json' },
+    //       body: JSON.stringify({ fileName: '2024.04.18合併簡化-1V2.frag' }),
+    //     });
 
-        if (!downloadResponse.ok) {
-          throw new Error(`Failed to get signed URL: ${downloadResponse.statusText}`);
-        }
+    //     if (!downloadResponse.ok) {
+    //       throw new Error(`Failed to get signed URL: ${downloadResponse.statusText}`);
+    //     }
 
-        const { signedUrl } = await downloadResponse.json();
-        const modelResponse = await fetch(signedUrl);
+    //     const { signedUrl } = await downloadResponse.json();
+    //     const modelResponse = await fetch(signedUrl);
 
-        if (!modelResponse.ok) {
-          throw new Error(`Failed to download model from R2: ${modelResponse.statusText}`);
-        }
+    //     if (!modelResponse.ok) {
+    //       throw new Error(`Failed to download model from R2: ${modelResponse.statusText}`);
+    //     }
 
-        const arrayBuffer = await modelResponse.arrayBuffer();
-        const modelId = `default-db-model`;
+    //     const arrayBuffer = await modelResponse.arrayBuffer();
+    //     const modelId = `default-db-model`;
 
-        for (const [id] of fragmentsRef.current.list) {
-          fragmentsRef.current.core.disposeModel(id);
-        }
+    //     for (const [id] of fragmentsRef.current.list) {
+    //       fragmentsRef.current.core.disposeModel(id);
+    //     }
 
-        const model = await fragmentsRef.current.core.load(arrayBuffer, { modelId });
-        fragmentsRef.current.list.set(modelId, model);
+    //     const model = await fragmentsRef.current.core.load(arrayBuffer, { modelId });
+    //     fragmentsRef.current.list.set(modelId, model);
 
-        setUploadedModels([{ id: modelId, name: "Default Model from R2", type: "frag", data: arrayBuffer }]);
-        await loadCategoriesFromAllModels();
+    //     setUploadedModels([{ id: modelId, name: "Default Model from R2", type: "frag", data: arrayBuffer }]);
+    //     await loadCategoriesFromAllModels();
 
-      } catch (error) {
-        console.error('Failed to load model from R2:', error);
-      } finally {
-        clearInterval(progressInterval);
-        setProgress(100);
-        setTimeout(() => setShowProgressModal(false), 500);
-      }
-    };
+    //   } catch (error) {
+    //     console.error('Failed to load model from R2:', error);
+    //   } finally {
+    //     clearInterval(progressInterval);
+    //     setProgress(100);
+    //     setTimeout(() => setShowProgressModal(false), 500);
+    //   }
+    // };
 
     // We only load the model from the DB once the viewer components are ready
     // AND the user is logged in.&& isLoggedIn
@@ -1498,86 +1593,86 @@ useEffect(() => {
     };
   }, []);
 
-  const IfcUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !ifcLoaderRef.current || !fragmentsRef.current || !worldRef.current) return;
+  // const IfcUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = event.target.files?.[0];
+  //   if (!file || !ifcLoaderRef.current || !fragmentsRef.current || !worldRef.current) return;
 
-    try {
-      setProgress(0);
-      setShowProgressModal(true);
+  //   try {
+  //     setProgress(0);
+  //     setShowProgressModal(true);
 
-      let simulatedProgress = 0;
-      const progressInterval = setInterval(() => {
-        simulatedProgress += Math.random() * 5;
-        if (simulatedProgress >= 98) simulatedProgress = 98;
-        setProgress(Math.floor(simulatedProgress));
-      }, 180);
+  //     let simulatedProgress = 0;
+  //     const progressInterval = setInterval(() => {
+  //       simulatedProgress += Math.random() * 5;
+  //       if (simulatedProgress >= 98) simulatedProgress = 98;
+  //       setProgress(Math.floor(simulatedProgress));
+  //     }, 180);
 
-      const arrayBuffer = await file.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      const cleanedFileName = file.name.replace(/[^a-zA-Z0-9-_.]/g, '_');
-      const modelId = `${cleanedFileName}_${Date.now()}`;
+  //     const arrayBuffer = await file.arrayBuffer();
+  //     const uint8Array = new Uint8Array(arrayBuffer);
+  //     const cleanedFileName = file.name.replace(/[^a-zA-Z0-9-_.]/g, '_');
+  //     const modelId = `${cleanedFileName}_${Date.now()}`;
 
-      const fragModel = await ifcLoaderRef.current.load(uint8Array, true, modelId, {
-        instanceCallback: (importer: any) => console.log("IfcImporter ready", importer),
-        userData: {},
-      });
+  //     const fragModel = await ifcLoaderRef.current.load(uint8Array, true, modelId, {
+  //       instanceCallback: (importer: any) => console.log("IfcImporter ready", importer),
+  //       userData: {},
+  //     });
 
-      fragmentsRef.current.list.set(modelId, fragModel);
+  //     fragmentsRef.current.list.set(modelId, fragModel);
 
-      worldRef.current.scene.three.add(fragModel.object);
-      await fragmentsRef.current.core.update(true);
-      fragModel.useCamera(worldRef.current.camera.three);
+  //     worldRef.current.scene.three.add(fragModel.object);
+  //     await fragmentsRef.current.core.update(true);
+  //     fragModel.useCamera(worldRef.current.camera.three);
 
-      setUploadedModels((prev) => [...prev, { id: modelId, name: file.name, type: "ifc", data: arrayBuffer }]);
+  //     setUploadedModels((prev) => [...prev, { id: modelId, name: file.name, type: "ifc", data: arrayBuffer }]);
 
-      clearInterval(progressInterval);
-      setProgress(100);
-      await new Promise((r) => setTimeout(r, 300));
+  //     clearInterval(progressInterval);
+  //     setProgress(100);
+  //     await new Promise((r) => setTimeout(r, 300));
 
-      await loadCategoriesFromAllModels();
-    } catch (err) {
-      console.error("Failed to load IFC:", err);
-    } finally {
-      setShowProgressModal(false);
-      event.target.value = "";
-    }
-  };
+  //     await loadCategoriesFromAllModels();
+  //   } catch (err) {
+  //     console.error("Failed to load IFC:", err);
+  //   } finally {
+  //     setShowProgressModal(false);
+  //     event.target.value = "";
+  //   }
+  // };
   
-  const handleFragmentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !fragmentsRef.current || !worldRef.current) return;
+  // const handleFragmentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = event.target.files?.[0];
+  //   if (!file || !fragmentsRef.current || !worldRef.current) return;
 
-    try {
-      setProgress(0);
-      setShowProgressModal(true);
+  //   try {
+  //     setProgress(0);
+  //     setShowProgressModal(true);
 
-      let simulatedProgress = 0;
-      const progressInterval = setInterval(() => {
-        simulatedProgress += Math.random() * 5;
-        if (simulatedProgress >= 98) simulatedProgress = 98;
-        setProgress(Math.floor(simulatedProgress));
-      }, 180);
+  //     let simulatedProgress = 0;
+  //     const progressInterval = setInterval(() => {
+  //       simulatedProgress += Math.random() * 5;
+  //       if (simulatedProgress >= 98) simulatedProgress = 98;
+  //       setProgress(Math.floor(simulatedProgress));
+  //     }, 180);
 
-      const arrayBuffer = await file.arrayBuffer();
-      const modelId = `frag_uploaded_${Date.now()}`;
+  //     const arrayBuffer = await file.arrayBuffer();
+  //     const modelId = `frag_uploaded_${Date.now()}`;
 
-      const fragModel = await fragmentsRef.current.core.load(arrayBuffer, { modelId });
+  //     const fragModel = await fragmentsRef.current.core.load(arrayBuffer, { modelId });
 
-      clearInterval(progressInterval);
-      setProgress(100);
-      await new Promise((r) => setTimeout(r, 500));
+  //     clearInterval(progressInterval);
+  //     setProgress(100);
+  //     await new Promise((r) => setTimeout(r, 500));
 
-      fragModel.useCamera(worldRef.current.camera.three);
-      worldRef.current.scene.three.add(fragModel.object);
-      fragmentsRef.current.core.update(true);
+  //     fragModel.useCamera(worldRef.current.camera.three);
+  //     worldRef.current.scene.three.add(fragModel.object);
+  //     fragmentsRef.current.core.update(true);
 
-      setUploadedModels((prev) => [...prev, { id: modelId, name: file.name, type: "frag", data: arrayBuffer }]);
-    } finally {
-      setShowProgressModal(false);
-      event.target.value = "";
-    }
-  };
+  //     setUploadedModels((prev) => [...prev, { id: modelId, name: file.name, type: "frag", data: arrayBuffer }]);
+  //   } finally {
+  //     setShowProgressModal(false);
+  //     event.target.value = "";
+  //   }
+  // };
   
   
   const formatItemPsets = (raw: FRAGS.ItemData[]) => {
@@ -2225,18 +2320,18 @@ useEffect(() => {
     return String(data);
   };
 
-  const loadCategoriesFromAllModels = async () => {
-    if (!fragmentsRef.current) return;
+  // const loadCategoriesFromAllModels = async () => {
+  //   if (!fragmentsRef.current) return;
 
-    const allCats: Set<string> = new Set();
+  //   const allCats: Set<string> = new Set();
 
-    for (const model of fragmentsRef.current.list.values()) {
-      const cats = await model.getItemsOfCategories([/.*/]);
-      Object.keys(cats).forEach((c) => allCats.add(c));
-    }
+  //   for (const model of fragmentsRef.current.list.values()) {
+  //     const cats = await model.getItemsOfCategories([/.*/]);
+  //     Object.keys(cats).forEach((c) => allCats.add(c));
+  //   }
 
-    setCategories(Array.from(allCats).sort());
-  };
+  //   setCategories(Array.from(allCats).sort());
+  // };
 
 
 
@@ -2269,13 +2364,13 @@ useEffect(() => {
   };
 
 
-  const onCategorySelect = (cat: string | null) => {
-    setSelectedCategory(cat);
+  // const onCategorySelect = (cat: string | null) => {
+  //   setSelectedCategory(cat);
 
-    setTimeout(() => {
-      isolateCategory(cat).catch(console.warn);
-    }, 100);
-  };
+  //   setTimeout(() => {
+  //     isolateCategory(cat).catch(console.warn);
+  //   }, 100);
+  // };
 
   const handleToggleAddMode = (active: boolean, groupId: string | null) => {
     setIsAddingToGroup(active);

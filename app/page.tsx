@@ -11,12 +11,12 @@ export default function Home() {
   const { darkMode, setIsLoggedIn, setUser } = useAppContext();
   const { data: session, status } = useSession();
 
-  useEffect(() => {
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      router.push('/mobile');
-    }
-  }, [router]);
+  // useEffect(() => {
+  //   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  //   if (isMobile) {
+  //     router.push('/mobile');
+  //   }
+  // }, [router]);
 
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
