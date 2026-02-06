@@ -633,11 +633,27 @@ useEffect(() => {
     console.log("🚀 啟動大檔案序列載入程序...");
     setHasAutoLoadedModels(true);
 
-    const modelsToLoad = uploadedModels.filter(m => 
+    // const modelsToLoad = uploadedModels.filter(m => 
+    //   m.r2FileName && !fragmentsRef.current?.list.has(m.r2FileName)
+    // );
+    let candidates = uploadedModels.filter(m => 
       m.r2FileName && !fragmentsRef.current?.list.has(m.r2FileName)
     );
 
-    if (modelsToLoad.length === 0) return;
+    // if (modelsToLoad.length === 0) return;
+    if (candidates.length === 0) return;
+
+    candidates.sort((a, b) => {
+        const aIsMain = a.r2FileName?.toLowerCase().includes('all') ? 1 : 0;
+        const bIsMain = b.r2FileName?.toLowerCase().includes('all') ? 1 : 0;
+        return bIsMain - aIsMain; // 降序排列，有 'all' 的會在陣列最前面
+    });
+
+    // 3. 切片：只取前 10 個
+    const LIMIT = 10;
+    const modelsToLoad = candidates.slice(0, LIMIT);
+
+    console.log(`預計載入 ${candidates.length} 個模型，限制載入前 ${modelsToLoad.length} 個`);
 
     setShowProgressModal(true);
     setProgress(0);
@@ -656,7 +672,7 @@ useEffect(() => {
     // --- 核心邏輯：並發控制 ---
     // 設定最大同時下載數量。
     // 針對 500MB 的檔案，強烈建議設為 1，頂多 2。
-    const MAX_CONCURRENCY = 6; 
+    const MAX_CONCURRENCY = 7; 
     
     let activeCount = 0;
     let index = 0;
@@ -765,8 +781,8 @@ useEffect(() => {
       scene.three.background = null;
 
       // axes x y z軸線
-      const axesHelper = new THREE.AxesHelper(500); // 參數 5 代表軸線長度
-      world.scene.three.add(axesHelper);
+      // const axesHelper = new THREE.AxesHelper(500); // 參數 5 代表軸線長度
+      // world.scene.three.add(axesHelper);
 
       const hdriLoader = new RGBELoader();
       hdriLoader.load(
@@ -1810,8 +1826,8 @@ useEffect(() => {
           //         0,0,0,
           case 'isometric': // === 等角模式 (工程視角) ===
             await camera.controls.setLookAt(
-            125,-20,100,
-            0,0,0,                    
+            120,-20,60,
+            0,-40,-40,                    
             true
           );
           setIsGlobalLoading(false);
@@ -1866,8 +1882,8 @@ useEffect(() => {
           //         0,0,0,
           case 'isometric': // === 等角模式 (工程視角) ===
             await camera.controls.setLookAt(
-            125,-20,100,
-            0,0,0,                    
+            120,-20,60,
+            0,-40,-40,                    
             true
           );
           setIsGlobalLoading(false);
@@ -2227,44 +2243,44 @@ useEffect(() => {
     await fetchR2Models();
   };
 
-  const deleteAllModels = async () => {
-    if (!fragmentsRef.current || !worldRef.current) return;
+  // const deleteAllModels = async () => {
+  //   if (!fragmentsRef.current || !worldRef.current) return;
     
-    for (const [modelId, fragModel] of fragmentsRef.current.list) {
-      worldRef.current.scene.three.remove(fragModel.object);
-      fragmentsRef.current.core.disposeModel(modelId);
-    }
+  //   for (const [modelId, fragModel] of fragmentsRef.current.list) {
+  //     worldRef.current.scene.three.remove(fragModel.object);
+  //     fragmentsRef.current.core.disposeModel(modelId);
+  //   }
 
-    // Delete all R2 models from R2 and MongoDB
-    const r2ModelsToDelete = uploadedModels.filter(m => m.r2FileName && m._id); // Ensure _id exists
-    for (const model of r2ModelsToDelete) {
-      try {
-        const response = await fetch('/api/models/r2-upload/delete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ modelId: model._id, r2FileName: model.r2FileName }), // Use model._id here
-        });
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to delete model from R2 and MongoDB');
-        }
-        console.log(`Model ${model.name} deleted from R2 and MongoDB.`);
-        setToast({ message: `Model ${model.name} deleted successfully!`, type: "success" });
-      } catch (error) {
-        console.error('Error deleting model from R2 and MongoDB:', error);
-        setToast({ message: `Failed to delete model ${model.name} from R2 and MongoDB. Check console for details.`, type: "error" });
-      }
-    }
+  //   // Delete all R2 models from R2 and MongoDB
+  //   const r2ModelsToDelete = uploadedModels.filter(m => m.r2FileName && m._id); // Ensure _id exists
+  //   for (const model of r2ModelsToDelete) {
+  //     try {
+  //       const response = await fetch('/api/models/r2-upload/delete', {
+  //         method: 'POST',
+  //         headers: { 'Content-Type': 'application/json' },
+  //         body: JSON.stringify({ modelId: model._id, r2FileName: model.r2FileName }), // Use model._id here
+  //       });
+  //       if (!response.ok) {
+  //         const errorData = await response.json();
+  //         throw new Error(errorData.error || 'Failed to delete model from R2 and MongoDB');
+  //       }
+  //       console.log(`Model ${model.name} deleted from R2 and MongoDB.`);
+  //       setToast({ message: `Model ${model.name} deleted successfully!`, type: "success" });
+  //     } catch (error) {
+  //       console.error('Error deleting model from R2 and MongoDB:', error);
+  //       setToast({ message: `Failed to delete model ${model.name} from R2 and MongoDB. Check console for details.`, type: "error" });
+  //     }
+  //   }
 
-    setSelectedModelId(null);
-    setSelectedLocalId(null);
-    setSelectedAttrs({});
-    setSelectedPsets({});
-    setRawPsets([]);
+  //   setSelectedModelId(null);
+  //   setSelectedLocalId(null);
+  //   setSelectedAttrs({});
+  //   setSelectedPsets({});
+  //   setRawPsets([]);
 
-    setUploadedModels([]);
-    await fetchR2Models(); // Refresh the list after successful deletion
-  };
+  //   setUploadedModels([]);
+  //   await fetchR2Models(); // Refresh the list after successful deletion
+  // };
 
   const createViewpoint = async (): Promise<OBC.Viewpoint | null> => {
     if (!viewpointsRef.current) return null;
