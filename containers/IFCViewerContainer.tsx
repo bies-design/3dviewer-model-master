@@ -8,45 +8,24 @@ import * as FRAGS from "@thatopen/fragments";
 import * as THREE from "three";
 import { PerspectiveCamera, OrthographicCamera, Vector2, Object3D, Mesh, Color, Vector3, BufferGeometry, BufferAttribute, MeshLambertMaterial, DoubleSide, EquirectangularReflectionMapping } from "three";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
-import IFCViewerUI from "@/components/IFCViewer/ViewerUI";
-import IFCInfoPanel from "@/components/IFCViewer/InfoPanel";
-import ModelManager from "@/components/IFCViewer/ModelManager";
 import LoadingModal from "@/components/IFCViewer/LoadingModal";
 import ActionButtons from "@/components/IFCViewer/ActionButtons";
 import R2ModelHistoryPanel from "@/components/IFCViewer/R2ModelHistoryPanel";
 import { R2Model } from "@/components/IFCViewer/R2ModelHistoryPanel";
-import CameraControls from "@/components/IFCViewer/CameraControls";
-import Viewpoints from "@/components/IFCViewer/Viewpoints";
-import ViewOrientation from "@/components/IFCViewer/ViewOrientation";
-import BCFTopics from "@/components/IFCViewer/BCFTopics";
-import CollisionDetector from "@/components/IFCViewer/CollisionDetector";
 import HomePanel, { HomePanelRef } from "@/components/IFCViewer/HomePanel";
-import SearchPanel from "@/components/IFCViewer/SearchPanel";
-import SideBar from "@/components/IFCViewer/SideBar";
-import SideBarTab from "@/components/IFCViewer/SideBarTab";
-import { ThemeSwitch } from "@/components/theme-switch";
-import { LanguageSwitch } from "@/components/LanguageSwitch";
 import Link from "next/link";
 import { LogIn, LogOut, User as UserIcon, Pause, Play, Download, Menu, Undo2, Layers, Globe, Layers2, TriangleAlert, ChevronRight, BookAlert, Box, AirVent, Cctv, DoorClosedLocked, Focus } from "lucide-react";
 import { Tooltip,Avatar,Switch } from "@heroui/react";
 import DescriptionPanel from "@/components/IFCViewer/DescriptionPanel";
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
-import ProjectsPanel from "@/components/IFCViewer/ProjectsPanel";
-import AIPanel from "@/components/IFCViewer/AIPanel";
 import { useAppContext } from "@/contexts/AppContext";
 import { useTranslation } from "react-i18next";
-// 
 import TopsideDataPanel from "@/components/IFCViewer/datapanel/TopsideDataPanel";
 import RightsideDataPanel from "@/components/IFCViewer/datapanel/RightsideDataPanel";
 import LeftsideDataPanel from "@/components/IFCViewer/datapanel/LeftsideDataPanel";
 import FloorModePanel from "@/components/IFCViewer/FloorModePanel";
 import RightSideDataPanelForFloor from "@/components/IFCViewer/datapanel/RightSideDataPanelForFloor";
-import FloorPlan from "@/components/IFCViewer/FloorPlan";
-import AssetsPanel from "@/components/IFCViewer/AssetsPanel";
-import ShadowScenePanel from "@/components/IFCViewer/ShadowScenePanel";
-import PreferenceSettings from "@/components/IFCViewer/PreferenceSettings";
-import UserPanel from "@/components/IFCViewer/UserPanel";
 import UserManagementPanel from "@/components/IFCViewer/UserManagementPanel";
 import UploadLinkDataPanel from "@/components/IFCViewer/UploadLinkDataPanel";
 import { signOut, useSession } from "next-auth/react";
@@ -177,7 +156,7 @@ export default function IFCViewerContainer() {
   const [navigation, setNavigation] = useState<"Orbit" | "FirstPerson" | "Plan">("Orbit");
   const [isGhost, setIsGhost] = useState(false);
   const [isShadowed, setIsShadowed] = useState(true);
-  const [isColorShadowsEnabled, setIsColorShadowsEnabled] = useState(true);
+  const [isColorShadowsEnabled, setIsColorShadowsEnabled] = useState(false);
   const [bcfMode, setBcfMode] = useState(false);
   const [activeTool, setActiveTool] = useState<"clipper" | "length" | "area" | "colorize" | "collision" | "search" | "multi-select" | null>(null);
   const [originalSelectStyle, setOriginalSelectStyle] = useState<any>(null);
@@ -223,8 +202,6 @@ export default function IFCViewerContainer() {
     humi: { ring: true, line: true },
     co2: { ring: true, line: true },
   });
-  const [showVisitors, setShowVisitors] = useState(true);
-  const [intervalMs, setIntervalMs] = useState(5000);
 
   const [showWarningModal, setShowWarningModal] = useState(false);
 
@@ -244,6 +221,12 @@ export default function IFCViewerContainer() {
 
   const globalCenterRef = useRef<THREE.Vector3 | null>(null);
   const globalBox3Ref = useRef<THREE.Box3 | null>(null);
+
+  globalBox3Ref.current = new THREE.Box3(
+    new THREE.Vector3(-122.31443, -46.17567, -20.75133), // min
+    new THREE.Vector3(91.13209, 19.24933, 41.86934)    // max
+  );
+  globalCenterRef.current = new THREE.Vector3(-15.59117, -13.46317, 10.559005);
 
   const ymdhmsDate = dayjs(user?.updatedAt).format('YYYY-MM-DD HH:mm:ss');
   const {data:session, status} = useSession();
@@ -520,11 +503,6 @@ export default function IFCViewerContainer() {
     setShowR2HistoryPanel(false); // Close R2 history panel when UserManagementPanel is opened/closed
   };
  
-  const handleOpenR2History = () => {
-    setShowR2HistoryPanel(prev => !prev); // Toggle the state
-    // setIsInfoOpen(false); // Close info panel when R2 history panel is opened
-    setIsUserManagementPanelOpen(false); // Close user management panel when R2 history panel is opened
-  };
   //管理選種element後跳轉樓層sidebar改變的邏輯
   useEffect(() => {
       setViewModeRef.current = setViewMode;
@@ -625,10 +603,10 @@ useEffect(() => {
     setProgress(100);
     // 獲取所有模型的中點和Box3
 
-    setTimeout(async () => {
-      await getAllCenterAndBox3();
+    // setTimeout(async () => {
+    //   await getAllCenterAndBox3();
 
-    }, 1000);
+    // }, 1000);
 
     onFocus('isometric');
     console.log("結束了 所以我聚焦一次");
@@ -1601,84 +1579,7 @@ useEffect(() => {
     }
   };
   
-  const handleJSONUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setProgress(0);
-      setShowProgressModal(true);
-
-      let simulatedProgress = 0;
-      const progressInterval = setInterval(() => {
-        simulatedProgress += Math.random() * 5;
-        if (simulatedProgress >= 98) simulatedProgress = 98;
-        setProgress(Math.floor(simulatedProgress));
-      }, 180);
-
-      const text = await file.text();
-      const data = JSON.parse(text);
-      const modelId = `json_uploaded_${Date.now()}`;
-
-      clearInterval(progressInterval);
-      setProgress(100);
-      await new Promise((r) => setTimeout(r, 700));
-
-      console.log("Loaded JSON:", data);
-
-      setUploadedModels((prev) => [...prev, { id: modelId, name: file.name, type: "json" }]);
-    } finally {
-      setShowProgressModal(false);
-      event.target.value = "";
-    }
-  };
   
-  const handleDownloadIFC = (model: UploadedModel) => {
-    if (!model.data) return;
-    const blob = new Blob([model.data], { type: "application/octet-stream" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = model.name;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-  
-  const downloadFragments = async () => {
-    for (const [, model] of fragmentsRef.current!.list) {
-      const fragsBuffer = await model.getBuffer(false);
-      const file = new File([fragsBuffer], `${model.modelId}.frag`);
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(file);
-      a.download = file.name;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    }
-  };
-  
-  const handleDownloadJSON = (model: UploadedModel) => {
-    const json = { id: model.id, name: model.name, date: new Date().toISOString() };
-    const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${model.name}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const getItemPsets = async (model: any, localId: number) => {
-    const [data] = await model.getItemsData([localId], {
-      attributesDefault: false,
-      attributes: ["Name", "NominalValue"],
-      relations: {
-      IsDefinedBy: { attributes: true, relations: true },
-      DefinesOcurrence: { attributes: false, relations: false },
-      },
-    });
-    return (data?.IsDefinedBy as FRAGS.ItemData[]) ?? [];
-  };
-
   const formatItemPsets = (raw: FRAGS.ItemData[]) => {
     const result: PsetDict = {};
     for (const pset of raw) {
@@ -1729,43 +1630,43 @@ useEffect(() => {
     await hider.set(true, selection);
   };
 
-  const getAllCenterAndBox3 = async() => {
-    const boxer = boxerRef.current as OBC.BoundingBoxer;
-    const fragments = fragmentsRef.current as OBC.FragmentsManager;
-    const visibleMap: OBC.ModelIdMap = {};
-    const allPositions: THREE.Vector3[] = [];
+  // const getAllCenterAndBox3 = async() => {
+  //   const boxer = boxerRef.current as OBC.BoundingBoxer;
+  //   const fragments = fragmentsRef.current as OBC.FragmentsManager;
+  //   const visibleMap: OBC.ModelIdMap = {};
+  //   const allPositions: THREE.Vector3[] = [];
 
-    boxer.list.clear();
+  //   boxer.list.clear();
 
-    // 遍歷所有已載入的模型
-    for (const [modelId, model] of fragments.list) {
-          // 1. 獲取該模型所有可見的 expressIds
-          const expressIds = await model.getItemsByVisibility(true);
+  //   // 遍歷所有已載入的模型
+  //   for (const [modelId, model] of fragments.list) {
+  //         // 1. 獲取該模型所有可見的 expressIds
+  //         const expressIds = await model.getItemsByVisibility(true);
 
-          if (expressIds.length > 0) {
-              // 2. ★ 修正：不需要內層迴圈！直接一次性獲取這些 ID 的位置
-              // getPositions 本身就是設計來接收 ID 陣列的
-              const positions = await model.getPositions(expressIds);
+  //         if (expressIds.length > 0) {
+  //             // 2. ★ 修正：不需要內層迴圈！直接一次性獲取這些 ID 的位置
+  //             // getPositions 本身就是設計來接收 ID 陣列的
+  //             const positions = await model.getPositions(expressIds);
               
-              // 3. 將位置加入總列表 (這樣比 push(...spread) 稍微快一點，或者保持原樣也可以)
-              for (let i = 0; i < positions.length; i++) {
-                  allPositions.push(positions[i]);
-              }
-          }
-    }
-    if (allPositions.length === 0) return;
+  //             // 3. 將位置加入總列表 (這樣比 push(...spread) 稍微快一點，或者保持原樣也可以)
+  //             for (let i = 0; i < positions.length; i++) {
+  //                 allPositions.push(positions[i]);
+  //             }
+  //         }
+  //   }
+  //   if (allPositions.length === 0) return;
 
-    const myManualBox3 = new THREE.Box3().setFromPoints(allPositions);
+  //   const myManualBox3 = new THREE.Box3().setFromPoints(allPositions);
 
-    // 幾何中心 (Box3 的中心)
-    const myManualCenter = new THREE.Vector3();
-    myManualBox3.getCenter(myManualCenter);
+  //   // 幾何中心 (Box3 的中心)
+  //   const myManualCenter = new THREE.Vector3();
+  //   myManualBox3.getCenter(myManualCenter);
 
-    globalBox3Ref.current = myManualBox3;
-    globalCenterRef.current = myManualCenter;
+  //   globalBox3Ref.current = myManualBox3;
+  //   globalCenterRef.current = myManualCenter;
 
-    console.log("✅ 全局中心點計算完成:", globalBox3Ref.current,globalCenterRef.current);
-  }
+  //   console.log("✅ 全局中心點計算完成:", globalBox3Ref.current,globalCenterRef.current);
+  // }
   // 定義視角模式
   type FocusMode = 'top-down' | 'isometric' | 'tight-fit';
   const onFocus = useCallback(async (mode: FocusMode = 'tight-fit') => {
@@ -2713,157 +2614,9 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
     }
   }, [components, t, setToast]);
 
-  const goToTopicViewpoint = async (topic: OBC.Topic) => {
-    if (!componentsRef.current || !topic.viewpoints.size) return;
-
-    const viewpoints = componentsRef.current.get(OBC.Viewpoints);
-    const highlighter = componentsRef.current.get(OBCF.Highlighter);
-    const fragments = componentsRef.current.get(OBC.FragmentsManager);
-
-    if (!viewpoints || !highlighter || !fragments) return;
-
-    const firstViewpointGuid = topic.viewpoints.values().next().value;
-
-    if (firstViewpointGuid) {
-      const viewpoint = viewpoints.list.get(firstViewpointGuid);
-      if (viewpoint) {
-        await viewpoint.go();
-
-        await highlighter.clear();
-
-        if (viewpoint.selectionComponents.size > 0) {
-          const guidArray = Array.from(viewpoint.selectionComponents);
-          const selection = await fragments.guidsToModelIdMap(guidArray);
-          highlighter.selection.select = selection;
-          await highlighter.highlight("select");
-        }
-      }
-    }
-  };
-
   return (
     <div className="flex w-full h-dvh overflow-hidden relative">
       <div className={`absolute z-20 h-dvh ${isSidebarVisible ? '' : 'hidden'}`}>
-        {/* <SideBar
-          darkMode={darkMode}
-          isOpen={isSidebarOpen}
-          activeTab={activeSidebarTab}
-          setActiveTab={setActiveSidebarTab}
-          onToggle={(isOpen) => {
-            setIsSidebarOpen(isOpen);
-            if (isOpen) {
-              setIsUserManagementPanelOpen(false);
-            }
-          }}
-          onToggleDescription={() => setShowDescriptionPanel(!showDescriptionPanel)}
-          isDescriptionOpen={showDescriptionPanel}
-          themeSwitcher={<ThemeSwitch darkMode={darkMode} toggleTheme={toggleTheme} />}
-          onToggleUserManagementPanel={handleToggleUserManagementPanel}
-        >
-          <SideBarTab name="Home">
-            {components && (
-              <HomePanel
-                ref={searchElementRef}
-                components={components!}
-                darkMode={darkMode}
-                onClose={() => {
-                  setIsSearchOpen(false);
-                  setActiveTool(null);
-                  setIsAddingToGroup(false);
-                  setActiveAddGroupId(null);
-                }}
-                onToggleAddMode={handleToggleAddMode}
-                uploadedModels={uploadedModels}
-                setUploadedModels={setUploadedModels}
-                handleAssignModelToGroup={handleAssignModelToGroup}
-                onModelGroupFilterChange={setCurrentModelGroupId}
-                fetchR2Models={fetchR2Models}
-                loadR2ModelIntoViewer={loadR2ModelIntoViewer}
-                fragmentsRef={fragmentsRef}
-                worldRef={worldRef}
-                mainDisplayGroupId={mainDisplayGroupId} // Pass mainDisplayGroupId
-                setMainDisplayGroupId={setMainDisplayGroupId} // Pass setMainDisplayGroupId
-              />
-            )}
-          </SideBarTab>
-          <SideBarTab name="Search">
-            {components && (
-              <SearchPanel
-                  components={components}
-                  darkMode={darkMode}
-                  loadedModelIds={Array.from(fragmentsRef.current?.list.keys() || [])}
-              />
-            )}
-          </SideBarTab>
-          <SideBarTab name="Models">
-            <ModelManager
-              darkMode={darkMode}
-              uploadedModels={uploadedModels}
-              setUploadedModels={setUploadedModels}
-              // IfcUpload={IfcUpload} // Commented out as per user request
-              handleFragmentUpload={handleFragmentUpload}
-              handleJSONUpload={handleJSONUpload}
-              handleDownloadIFC={handleDownloadIFC}
-              downloadFragments={downloadFragments}
-              handleDownloadJSON={handleDownloadJSON}
-              deleteAllModels={deleteAllModels}
-              deleteSelectedModel={deleteSelectedModel}
-              fragmentsRef={fragmentsRef}
-              worldRef={worldRef}
-              components={components!} // Pass the components instance
-              fetchR2Models={fetchR2Models}
-              onOpenR2History={handleOpenR2History} // Pass the new handler
-              handleAssignModelToGroup={handleAssignModelToGroup} // Pass the new handler
-              onModelGroupFilterChange={setCurrentModelGroupId} // Pass the new handler to update currentModelGroupId
-              setR2HistoryRefreshCounter={setR2HistoryRefreshCounter} // Pass the refresh counter setter
-              isR2HistoryPanelOpen={showR2HistoryPanel} // Pass the state of R2 history panel
-              mainDisplayGroupId={mainDisplayGroupId} // Pass mainDisplayGroupId
-              setMainDisplayGroupId={setMainDisplayGroupId} // Pass setMainDisplayGroupId
-            />
-          </SideBarTab>
-          <SideBarTab name="Element Manager">
-            <UploadLinkDataPanel darkMode={darkMode} />
-          </SideBarTab>
-            <SideBarTab name="Floors">
-              <FloorPlan onSelectFloor={handleSelectFloor} />
-            </SideBarTab>
-            <SideBarTab name="Assets">
-              <AssetsPanel />
-            </SideBarTab> 
-            <SideBarTab name="Settings">
-              <PreferenceSettings
-                darkMode={darkMode}
-                projection={projection}
-                navigation={navigation}
-                setProjection={setProjection}
-                setNavigation={setNavigation}
-                worldRef={worldRef}
-                components={components}
-                showGauges={showGauges}
-                setShowGauges={setShowGauges}
-                showVisitors={showVisitors}
-                setShowVisitors={setShowVisitors}
-                intervalMs={intervalMs}
-                setIntervalMs={setIntervalMs}
-                activeTab={activeSettingsTab}
-                setActiveTab={setActiveSettingsTab}
-              />
-            </SideBarTab>
-            <SideBarTab name="User" icon={
-              user?.avatar ? (
-                <Image src={user.avatar} alt="User Avatar" width={24} height={24} className="rounded-full" />
-              ) : (
-                <UserIcon />
-              )
-            }>
-              <UserPanel
-                languageSwitcher={<LanguageSwitch />}
-                handleLogout={handleLogout}
-                setShowLoginModal={setShowLoginModal}
-              />
-            </SideBarTab> */}
-            {/* UserManagementPanel is rendered outside SideBar for full-page expansion */}
-        {/* </SideBar>  */}
       </div>
           <GlobalLoader
             isLoadings={isGlobalLoading}
