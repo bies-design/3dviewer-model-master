@@ -118,7 +118,6 @@ useEffect(() => {
 
 
 // --- 3. 核心功能：根據樓層載入設備 (獨立函式) ---
-// --- 3. 核心功能：根據樓層載入設備 (篩選 Name 不為空) ---
 const fetchAndIsolateFloor = useCallback(async (floor: string | null) => {
     
     if(isLoadingRef.current){
@@ -128,8 +127,6 @@ const fetchAndIsolateFloor = useCallback(async (floor: string | null) => {
 
     isLoadingRef.current = true;
 
-    setIsLoading(true);
-
     setSelectedDevice(null);
     setSelectedDeviceName(null);
 
@@ -138,6 +135,12 @@ const fetchAndIsolateFloor = useCallback(async (floor: string | null) => {
 
     const hider = components.get(OBC.Hider);
     const highlighter = components.get(OBCF.Highlighter);
+    outlinerRef.current?.dispose();
+    markerRef.current?.dispose();
+    setIsCCTVOn(false);
+    setIsEACOn(false);
+    setIsHVACOn(false);
+    
     setSearchText('');
     setIsLoading(true);
     setIsGlobalLoading(true);
@@ -217,7 +220,7 @@ const fetchAndIsolateFloor = useCallback(async (floor: string | null) => {
         setIsGlobalLoading(false);
         isLoadingRef.current = false;
     }
-}, [components, loadedModelIds, viewMode]);
+}, [components,outlinerRef,markerRef,loadedModelIds, viewMode]);
 
 // 只有在以下兩種情況才執行 3D 隔離與資料抓取：
 // 1. 樓層真正改變時 (手動下拉選單)
@@ -227,7 +230,7 @@ useEffect(() => {
         console.log("樓層改變 使用者手動切換樓層",selectedFloor,prevSelectedFloorRef);
         fetchAndIsolateFloor(selectedFloor as string | null);
     }else if(viewMode === 'floor' && !selectedDevice && lastViewModeRef.current === 'device'){
-        console.log("從設備模式切換floor模式 重新渲染樓層",);
+        console.log("從設備模式切換floor模式 重新渲染樓層");
         fetchAndIsolateFloor(selectedFloor as string | null);
     }
     lastViewModeRef.current = viewMode;
@@ -294,7 +297,7 @@ const onSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     }
 };
 
-// 第一步：先過濾搜尋關鍵字（保留你原本的邏輯）
+// 第一步：先過濾搜尋關鍵字
 const displayDevices = useMemo(() => {
     return filteredDevices.filter(d => 
         !debouncedSearch || d.name.toLowerCase().includes(debouncedSearch.toLowerCase())

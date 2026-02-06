@@ -979,85 +979,31 @@ useEffect(() => {
       //     }
       //   }
       // });
-      // ★★★★★ 核心修改區塊：點擊事件處理 ★★★★★
+      // ★★★★★ 點擊事件處理 ★★★★★
       highlighter.events.select.onHighlight.add(async (selection) => {
         if(viewModeRef.current === "floor" || viewModeRef.current === 'device' || viewModeRef.current === 'issueforms' ) return;
 
         console.log('Global Highlight selection:', selection);
-
-        // // 2. 處理加入群組邏輯 (如果有的話)
-        // if (isAddingToGroupRef.current && activeAddGroupIdRef.current !== null) {
-        //   // ... (省略加入群組邏輯，保持原樣) ...
-        //   const fragmentId = Object.keys(selection)[0];
-        //   const expressIds = Array.from(selection[fragmentId]);
-        //   // 這裡僅示範，需配合您的 searchElementRef 邏輯
-        //   // searchElementRef.current?.addItemToGroup(...) 
-        //   await highlighter.clear("select");
-        //   return;
-        // }
         
-        // 3. ★★★ 點擊物件 -> 隔離樓層邏輯 ★★★
+        // ★★★ 點擊物件 -> 隔離樓層邏輯 ★★★
         // 取得被點擊物件的 Model ID
         const fragmentId = Object.keys(selection)[0];
         // 解析樓層
         const floorName = extractFloorFromModelId(fragmentId);
-
-        if (floorName) {
+        // 更新 selectedFloor 讓floormodepanel連動
+        if(floorName){
           console.log(`Detected click on floor: ${floorName}, isolating...`);
-          try {
-            // 建構查詢：找出所有該樓層的物件
-            const query = {
-              attribute: "Name",
-              operator: "include",
-              value: floorName,
-              logic: "AND"
-            };
-
-            // 獲取目前所有已載入的模型 ID
-            const currentLoadedModelIds = Array.from(fragments.list.keys());
-
-            // 發送請求到後端
-            const response = await fetch('/api/elements', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                  queries: [query], 
-                  modelIds: currentLoadedModelIds 
-              }),
-            });
-
-            if (response.ok) {
-              const foundElements = await response.json();
-              if (foundElements.length > 0) {
-                const finalResult: { [id: string]: Set<number> } = {};
-                
-                // 整理 ID
-                for (const element of foundElements) {
-                  const { modelId, attributes } = element;
-                  const expressID = attributes._localId.value;
-                  if (!finalResult[modelId]) finalResult[modelId] = new Set();
-                  finalResult[modelId].add(expressID);
-                }
-
-                // // 執行隔離 (只顯示該樓層)
-                // const hider = components.get(OBC.Hider);
-                // if (hider) await hider.isolate(finalResult);
-
-                // 更新 Context 讓左側面板連動
-                if (setSelectedFloorRef.current) {
-                    setSelectedFloorRef.current(floorName);
-                }
-
-                // 切換 ViewMode
-                if (setViewModeRef.current) {
-                    console.log("Switching view mode to floor"); // Debug
-                    setViewModeRef.current('floor');
-                }
-              }
-            }
-          } catch (err) {
-            console.error("Failed to isolate clicked floor", err);
+          if (setSelectedFloorRef.current) {
+            setSelectedFloorRef.current(floorName);
           }
+
+          // 切換 ViewMode
+          if (setViewModeRef.current) {
+              console.log("Switching view mode to floor"); // Debug
+              setViewModeRef.current('floor');
+          }
+        }else{
+          setToast({ message: `Failed to isolate floor`, type: "error" });
         }
       });
 
@@ -2661,7 +2607,6 @@ const outlineAllCamera = async() => {
     console.log("抓取到的元素",foundElements);
 
     if (foundElements.length > 0) {
-        const selection: OBC.ModelIdMap = {};
 
         markerRef.current?.dispose();
         outlinerRef.current?.clean();
@@ -2670,9 +2615,6 @@ const outlineAllCamera = async() => {
           const { modelId, attributes } = element;
           const expressID = attributes._localId.value;
           const elementName = attributes.Name.value;
-
-          if (!selection[modelId]) selection[modelId] = new Set();
-          selection[modelId].add(expressID);
 
           const singleSelection: OBC.ModelIdMap = { [modelId]: new Set([expressID]) };
           const point = await boxerRef.current?.getCenter(singleSelection);
@@ -2688,15 +2630,11 @@ const outlineAllCamera = async() => {
             // 在場景中建立 Marker
             markerRef.current?.create(worldRef.current, markerLabel, point);
           }
+          console.log("正在為以下相機加上輪廓：", singleSelection);
+          await outlinerRef.current?.addItems(singleSelection);
         }
-
-        console.log("正在為以下相機加上輪廓：", selection);
-        await outlinerRef.current?.addItems(selection);
-
         console.log("所有監視器標記完成");
         
-        
-        console.log("已經加outline在",selection);
       }
   }catch (error) {
       console.error("Failed to fetch cameras:", error);
