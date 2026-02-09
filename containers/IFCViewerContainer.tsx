@@ -223,10 +223,10 @@ export default function IFCViewerContainer() {
   const globalBox3Ref = useRef<THREE.Box3 | null>(null);
 
   globalBox3Ref.current = new THREE.Box3(
-    new THREE.Vector3(-122.31443, -46.17567, -20.75133), // min
-    new THREE.Vector3(91.13209, 19.24933, 41.86934)    // max
+    new THREE.Vector3(-31.00339000000001, -60.32, -56.14823), // min
+    new THREE.Vector3(75.50107, 5.104999999999997, 6.288639999999997)    // max
   );
-  globalCenterRef.current = new THREE.Vector3(-15.59117, -13.46317, 10.559005);
+  globalCenterRef.current = new THREE.Vector3(22.248839999999994, -27.6075, -24.929795);
 
   const ymdhmsDate = dayjs(user?.updatedAt).format('YYYY-MM-DD HH:mm:ss');
   const {data:session, status} = useSession();
@@ -721,6 +721,10 @@ useEffect(() => {
     // 等待所有任務鏈結束
     await Promise.all(initialPromises);
 
+    // setTimeout(async () => {
+    //   await getAllCenterAndBox3();
+
+    // }, 1000);
     console.log("✅ 所有大模型載入完成");
     setProgress(100);
     
@@ -1816,8 +1820,8 @@ useEffect(() => {
         switch (mode) {
           case 'top-down': // === 俯視模式 (像 2D 平面圖) ===
             await camera.controls.setLookAt(
-              globalCenterRef.current.x + 40,globalCenterRef.current.y + 60,globalCenterRef.current.z + 80,
-              globalCenterRef.current.x + 40,globalCenterRef.current.y ,globalCenterRef.current.z,
+              globalCenterRef.current.x ,globalCenterRef.current.y + 80,globalCenterRef.current.z + 100,
+              globalCenterRef.current.x ,globalCenterRef.current.y ,globalCenterRef.current.z,
               true // 開啟過渡動畫
             );
             setIsGlobalLoading(false);
@@ -1826,8 +1830,8 @@ useEffect(() => {
           //         0,0,0,
           case 'isometric': // === 等角模式 (工程視角) ===
             await camera.controls.setLookAt(
-            120,-20,60,
-            0,-40,-40,                    
+            globalBox3Ref.current.min.x + 160, globalBox3Ref.current.min.y + 50, globalBox3Ref.current.min.z + 110,
+            globalBox3Ref.current.min.x - 40, globalBox3Ref.current.min.y + 10, globalBox3Ref.current.min.z -40,                    
             true
           );
           setIsGlobalLoading(false);
@@ -1835,12 +1839,7 @@ useEffect(() => {
 
           case 'tight-fit': // === 緊湊聚焦 (原版 fit 的改良) ===
             // 使用底層的 fitToBox 並給予極小的 padding (預設 fit 會留很多白邊)
-            await camera.controls.fitToBox(globalBox3Ref.current, true, {
-              paddingLeft: 0.1, 
-              paddingRight: 0.1, 
-              paddingTop: 0.1, 
-              paddingBottom: 0.1
-            });
+            await camera.controls.fitToBox(globalBox3Ref.current, true);
             setIsGlobalLoading(false);
             break;
         }

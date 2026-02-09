@@ -203,7 +203,8 @@ const fetchAndIsolateFloor = useCallback(async (floor: string | null) => {
             
             setFilteredDevices(foundItems);
             
-            await onFocus('top-down');
+            if(viewMode === 'floor')await onFocus('top-down');
+            if(viewMode === 'device')await onFocus('tight-fit');
             // // 確保渲染完成後再對焦
             // await cameraRef.current?.fitToItems(finalResult);
             // console.log("第一個focus")
