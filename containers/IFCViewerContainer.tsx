@@ -351,10 +351,10 @@ export default function IFCViewerContainer() {
       }
 
       const fragModel = await fragmentsRef.current.core.load(arrayBuffer, { modelId });
-      fragmentsRef.current.list.set(modelId, fragModel);
+      // fragmentsRef.current.list.set(modelId, fragModel);
 
-      fragModel.useCamera(worldRef.current.camera.three);
-      worldRef.current.scene.three.add(fragModel.object);
+      // fragModel.useCamera(worldRef.current.camera.three);
+      // worldRef.current.scene.three.add(fragModel.object);
       fragmentsRef.current.core.update(true);
 
       setUploadedModels((prev) => {

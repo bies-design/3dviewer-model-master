@@ -1,5 +1,6 @@
 "use client";
 
+import { Highlighter } from "@thatopen/components-front";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -33,7 +34,7 @@ const getDiff = (before: any, after: any) => {
       diffs.push({ key, before: before?.[key], after: after?.[key] });
     }
   });
-
+  
   return diffs;
 };
 
