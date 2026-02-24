@@ -29,7 +29,7 @@ const MobileActionButtons: React.FC<MobileActionButtonsProps> = ({
     }`;
 
   return (
-    <div className={`relative w-full h-16 flex border-t ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+    <div className={`hud-panel relative w-full h-16 flex`}>
       
       {/* 1. Element Name Button */}
       <button

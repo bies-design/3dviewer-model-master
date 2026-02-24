@@ -18,7 +18,6 @@ import FloorPlan from "@/components/IFCViewer/FloorPlan";
 import AssetsPanel from "@/components/IFCViewer/AssetsPanel";
 import MobileSearchPanel from "@/components/IFCViewer/MobileSearchPanel";
 import Viewpoints, { StoredViewpoint } from "@/components/IFCViewer/Viewpoints";
-import TopsideDataPanel from "@/components/IFCViewer/datapanel/TopsideDataPanel";
 import QRScannerModal from "@/components/IFCViewer/QRScannerModal";
 
 type ItemProps = Record<string, any>;
@@ -67,6 +66,7 @@ const MobileViewerContainer = () => {
       opacity: number;
       vertexColors: boolean;
       depthWrite: boolean;
+      side: THREE.Side;
     }
   >());
 
@@ -89,7 +89,6 @@ const MobileViewerContainer = () => {
   const [storedViews, setStoredViews] = useState<StoredViewpoint[]>([]);
   const [currentViewpoint, setCurrentViewpoint] = useState<OBC.Viewpoint | null>(null);
   
-  // QR & Repair Menu State
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
   const [showRepairButton, setShowRepairButton] = useState(false);
 
@@ -133,10 +132,22 @@ const MobileViewerContainer = () => {
   const [isViewerReady, setIsViewerReady] = useState(false); 
   const [selectedSidePanel, setSelectedSidePanel] = useState<'home' | 'search' | 'floor' | 'assets'>('home');
   const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [headerWidth, setHeaderWidth] = useState(0);
 
   useEffect(() => { isAddingToGroupRef.current = isAddingToGroup; activeAddGroupIdRef.current = activeAddGroupId; }, [isAddingToGroup, activeAddGroupId]);
   useEffect(() => { activeToolRef.current = activeTool; }, [activeTool]);
   useEffect(() => { viewModeRef.current = viewMode; }, [viewMode]); 
+
+  useEffect(() => {
+    setIsMounted(true);
+    
+    const handleResize = () => setHeaderWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // --- Helper Functions ---
   const loadCategoriesFromAllModels = async () => {
@@ -207,13 +218,15 @@ const MobileViewerContainer = () => {
           opacity: material.opacity,
           vertexColors: material.vertexColors,
           depthWrite: material.depthWrite,
+          side: material.side,
         });
       }
 
       material.transparent = true;
-      material.opacity = 0.1;
+      material.opacity = 0.2;
       material.vertexColors = false;
-      material.depthWrite = false;
+      material.depthWrite = true;
+      material.side = THREE.FrontSide;
       material.needsUpdate = true;
 
       if ('color' in material) material.color.setRGB(0.2, 0.2, 0.2);
@@ -227,6 +240,7 @@ const MobileViewerContainer = () => {
       material.opacity = data.opacity;
       material.vertexColors = data.vertexColors;
       material.depthWrite = data.depthWrite;
+      material.side = data.side;
       if ('color' in material) material.color.setHex(data.color);
       else material.lodColor.setHex(data.color);
       material.needsUpdate = true;
@@ -492,50 +506,101 @@ const MobileViewerContainer = () => {
   };
 
   const generateDefaultViewpoints = async () => {
-    if (!viewpointsRef.current || !worldRef.current) return;
-    
-    if (!globalBox3Ref.current || !globalCenterRef.current) {
-      await getAllCenterAndBox3();
-      if(!globalBox3Ref.current) return;
-    }
-
+    if (!viewpointsRef.current || !worldRef.current || !boxerRef.current || !fragmentsRef.current) return;
     if (storedViews.length > 0) return;
 
     setShowProgressModal(true);
     setProgress(0);
-    
+
     viewpointsRef.current.world = worldRef.current;
-
-    const center = globalCenterRef.current!;
-    const size = new THREE.Vector3();
-    globalBox3Ref.current!.getSize(size);
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const dist = maxDim * 1.5;
-
-    const positions = [
-      { name: "Front Door", pos: new THREE.Vector3(center.x, center.y, center.z + dist) },
-      { name: "Back Door", pos: new THREE.Vector3(center.x, center.y, center.z - dist) },
-      { name: "Left Door", pos: new THREE.Vector3(center.x - dist, center.y, center.z) },
-      { name: "Right Door", pos: new THREE.Vector3(center.x + dist, center.y, center.z) },
-    ];
-
+    const boxer = boxerRef.current;
     const camera = worldRef.current.camera as OBC.OrthoPerspectiveCamera;
-    const newViews: StoredViewpoint[] = [];
-    const totalSteps = positions.length;
 
-    for (const [index, view] of positions.entries()) {
-      
+    await new Promise(r => setTimeout(r, 1000));
+
+    const originalPos = new THREE.Vector3();
+    const originalTarget = new THREE.Vector3();
+    camera.controls.getPosition(originalPos);
+    camera.controls.getTarget(originalTarget);
+
+    const doorList: { modelId: string, expressId: number, center: THREE.Vector3, name: string }[] = [];
+    
+    for (const [modelId, model] of fragmentsRef.current.list) {
+      try {
+        const categoryData = await (model as any).getItemsOfCategories([/IFCDOOR/i]);
+        const doorIds: number[] = [];
+        
+        for (const [catName, ids] of Object.entries(categoryData)) {
+          doorIds.push(...(ids as number[]));
+        }
+
+        for (const id of doorIds) {
+          boxer.list.clear();
+          await boxer.addFromModelIdMap({ [modelId]: new Set([id]) });
+          const box = boxer.get();
+          
+          if (!box.isEmpty()) {
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+            
+            let doorName = `Door ${id}`; 
+            
+            try {
+              const response = await fetch('/api/elements', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  queries: [{ id: 0, attribute: "_localId", operator: "equal", value: id, logic: "AND" }],
+                  modelIds: [modelId]
+                })
+              });
+              
+              if (response.ok) {
+                const results = await response.json();
+                if (results && results.length > 0) {
+                  const attrs = results[0].attributes;
+                  if (attrs && attrs.Name && attrs.Name.value) {
+                    doorName = attrs.Name.value;
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn("無法取得門的名稱", err);
+            }
+
+            doorList.push({ modelId, expressId: id, center, name: doorName });
+          }
+        }
+      } catch (e) {
+        console.warn("尋找門元件時發生錯誤:", e);
+      }
+    }
+
+    if (doorList.length === 0) {
+      setShowProgressModal(false);
+      return;
+    }
+
+    const wasGhost = isGhost;
+    if (!wasGhost && componentsRef.current) {
+      setModelTransparent(componentsRef.current);
+    }
+
+    const newViews: StoredViewpoint[] = [];
+    const totalSteps = doorList.length;
+
+    for (const [index, door] of doorList.entries()) {
       await camera.controls.setLookAt(
-        view.pos.x, view.pos.y, view.pos.z, 
-        center.x, center.y, center.z,       
-        false                               
+        door.center.x + 15, door.center.y + 15, door.center.z + 15, 
+        door.center.x, door.center.y, door.center.z,       
+        false                         
       );
       
-      await new Promise(r => setTimeout(r, 100)); 
+      await new Promise(r => setTimeout(r, 200));
 
       const vp = viewpointsRef.current.create();
       if (vp) {
-        vp.title = view.name;
+        vp.title = door.name;
         await vp.updateCamera();
         
         const snapshotBuffer = getCanvasSnapshot();
@@ -546,25 +611,34 @@ const MobileViewerContainer = () => {
         const snapshotData = getViewpointSnapshotData(vp);
         newViews.push({
           id: vp.guid,
-          title: view.name,
+          title: door.name,
           viewpoint: vp,
-          snapshot: snapshotData
+          snapshot: snapshotData,
+          userData: { 
+            center: door.center,
+            modelId: door.modelId,
+            expressId: door.expressId
+          }
         });
       }
+      setProgress(Math.round(((index + 1) / totalSteps) * 100));
+    }
 
-      const currentProgress = Math.round(((index + 1) / totalSteps) * 100);
-      setProgress(currentProgress);
+    if (!wasGhost) {
+      restoreModelMaterials();
     }
 
     setStoredViews(newViews);
+    setTimeout(() => setShowProgressModal(false), 300);
     
-    setTimeout(() => {
-      setShowProgressModal(false);
-    }, 300);
+    await camera.controls.setLookAt(
+      originalPos.x, originalPos.y, originalPos.z,
+      originalTarget.x, originalTarget.y, originalTarget.z,
+      false
+    );
     
     if (newViews.length > 0) {
       setCurrentViewpoint(newViews[0].viewpoint);
-      await newViews[0].viewpoint.go();
     }
   };
 
@@ -582,6 +656,13 @@ const MobileViewerContainer = () => {
   const setWorldCamera = async (viewpoint: OBC.Viewpoint) => {
     if (!viewpoint || !worldRef.current) return;
     await viewpoint.go();
+    const camera = worldRef.current.camera.three as THREE.PerspectiveCamera | THREE.OrthographicCamera;
+    
+    if (camera) {
+      camera.near = 0.1;
+      camera.far = 10000;
+      camera.updateProjectionMatrix();
+    }
   };
 
   const getViewpointSnapshotData = (vp: OBC.Viewpoint): string | null => {
@@ -835,10 +916,13 @@ const MobileViewerContainer = () => {
     setShowRepairButton(false);
   };
 
-  const handleDrawPath = async (doorName: string) => {
+  type PathSegment = 'door-to-elevator' | 'elevator-vertical' | 'elevator-to-device';
+
+  const handleDrawPath = async (view: StoredViewpoint, segment: PathSegment) => {
     if (!worldRef.current || !globalBox3Ref.current || !globalCenterRef.current) return;
     
     const scene = worldRef.current.scene.three;
+    const camera = worldRef.current.camera as OBC.OrthoPerspectiveCamera;
 
     if (pathMeshRef.current) {
       scene.remove(pathMeshRef.current);
@@ -847,12 +931,30 @@ const MobileViewerContainer = () => {
       pathMeshRef.current = null;
     }
 
-    const validDoors = ["Front Door", "Back Door", "Left Door", "Right Door"];
-    if (!validDoors.includes(doorName) || !selectedFragId || !selectedDevice) return;
-
     if (!isGhost && componentsRef.current) {
       setModelTransparent(componentsRef.current);
       setIsGhost(true);
+    }
+
+    if (!view.userData || !view.userData.center) return;
+    if (!selectedFragId || !selectedDevice) return;
+
+    if (highlighterRef.current) {
+      const selection: OBC.ModelIdMap = {};
+      
+      selection[selectedFragId] = new Set([selectedDevice]);
+      
+      if (view.userData.modelId && view.userData.expressId) {
+        const dModel = view.userData.modelId;
+        const dId = view.userData.expressId;
+        if (!selection[dModel]) selection[dModel] = new Set();
+        selection[dModel].add(dId);
+      }
+
+      highlighterRef.current.enabled = true;
+      await highlighterRef.current.clear("select");
+      await highlighterRef.current.highlightByID("select", selection, true, false);
+      highlighterRef.current.enabled = false;
     }
 
     const boxer = boxerRef.current;
@@ -865,37 +967,35 @@ const MobileViewerContainer = () => {
     const targetCenter = new THREE.Vector3();
     elementBox.getCenter(targetCenter);
 
-    const gBox = globalBox3Ref.current;
     const gCenter = globalCenterRef.current;
-    const size = new THREE.Vector3();
-    gBox.getSize(size);
-    
-    const groundY = gBox.min.y;
-    const dist = Math.max(size.x, size.z) / 2 + 2;
+    const startPt = view.userData.center as THREE.Vector3;
 
-    // 計算路徑的三個關鍵點 (Start ➔ Elevator ➔ Element Floor ➔ Target)
-    let startPt = new THREE.Vector3();
-    if (doorName === "Front Door") startPt.set(gCenter.x, groundY, gCenter.z + dist);
-    else if (doorName === "Back Door") startPt.set(gCenter.x, groundY, gCenter.z - dist);
-    else if (doorName === "Left Door") startPt.set(gCenter.x - dist, groundY, gCenter.z);
-    else if (doorName === "Right Door") startPt.set(gCenter.x + dist, groundY, gCenter.z);
-
-    const elevatorGroundPt = new THREE.Vector3(gCenter.x, groundY, gCenter.z);
+    const elevatorGroundPt = new THREE.Vector3(gCenter.x, startPt.y, gCenter.z);
     const elevatorTargetPt = new THREE.Vector3(gCenter.x, targetCenter.y, gCenter.z);
 
-    // 建立曲線路徑
     const path = new THREE.CurvePath<THREE.Vector3>();
-    path.add(new THREE.LineCurve3(startPt, elevatorGroundPt)); // 進大門走向電梯
-    path.add(new THREE.LineCurve3(elevatorGroundPt, elevatorTargetPt)); // 搭電梯垂直向上
-    path.add(new THREE.LineCurve3(elevatorTargetPt, targetCenter)); // 出電梯走向目標元件
+    const segmentBox = new THREE.Box3();
 
-    const tubeGeometry = new THREE.TubeGeometry(path, 64, 0.2, 8, false);
+    if (segment === 'door-to-elevator') {
+      path.add(new THREE.LineCurve3(startPt, elevatorGroundPt));
+      segmentBox.setFromPoints([startPt, elevatorGroundPt]);
+      
+    } else if (segment === 'elevator-vertical') {
+      path.add(new THREE.LineCurve3(elevatorGroundPt, elevatorTargetPt));
+      segmentBox.setFromPoints([elevatorGroundPt, elevatorTargetPt]);
+      
+    } else if (segment === 'elevator-to-device') {
+      path.add(new THREE.LineCurve3(elevatorTargetPt, targetCenter));
+      segmentBox.setFromPoints([elevatorTargetPt, targetCenter]);
+    }
+
+    const tubeGeometry = new THREE.TubeGeometry(path, 64, 0.4, 8, false); // 管線調粗一點點 (0.4) 更明顯
     
     const material = new THREE.MeshBasicMaterial({ 
       color: 0xff0000, 
-      depthTest: false, 
+      depthTest: false,
       transparent: true, 
-      opacity: 0.8 
+      opacity: 0.9 
     });
 
     const pathMesh = new THREE.Mesh(tubeGeometry, material);
@@ -903,12 +1003,38 @@ const MobileViewerContainer = () => {
 
     scene.add(pathMesh);
     pathMeshRef.current = pathMesh;
+    if (!segmentBox.isEmpty()) {
+      segmentBox.expandByScalar(10); 
+      
+      await camera.controls.fitToBox(segmentBox, true, {
+        paddingLeft: 0.1, paddingRight: 0.1, paddingTop: 0.1, paddingBottom: 0.1
+      });
+    }
+  };
+
+  const handleClearPath = async () => {
+    if (pathMeshRef.current && worldRef.current) {
+      worldRef.current.scene.three.remove(pathMeshRef.current);
+      pathMeshRef.current.geometry.dispose();
+      (pathMeshRef.current.material as THREE.Material).dispose();
+      pathMeshRef.current = null;
+    }
+    
+    if (highlighterRef.current && selectedFragId && selectedDevice) {
+      const selection: OBC.ModelIdMap = {};
+      selection[selectedFragId] = new Set([selectedDevice]);
+      
+      highlighterRef.current.enabled = true;
+      await highlighterRef.current.clear("select");
+      await highlighterRef.current.highlightByID("select", selection, true, false);
+      highlighterRef.current.enabled = false;
+    }
   };
 
   const getStepTitle = () => {
-    if (showRepairButton) return "Step 3 : Finish Repair Request Form";
-    if (SearchResultMode) return "Step 2 : Path to Element";
-    return "Step 1 : Search Element";
+    if (showRepairButton) return "第三步 : 完成報修表單";
+    if (SearchResultMode) return "第二步 : 設備路徑規劃";
+    return "第一步 : 搜尋設備位置";
   };
 
   // Init
@@ -978,13 +1104,52 @@ const MobileViewerContainer = () => {
     };
   }, []);
 
+  const centerX = headerWidth / 2;
+  const gap = 130;
+  
+  const headerPathData = [
+    `M 0 15`,                      
+    `L ${centerX - gap - 40} 15`,  
+    `L ${centerX - gap} 60`,       
+    `L ${centerX + gap} 60`,       
+    `L ${centerX + gap + 40} 15`,  
+    `L ${headerWidth} 15`,         
+  ].join(" ");
+
   return (
-    <div className={`relative h-dvh w-screen overflow-hidden ${darkMode ? 'bg-custom-zinc-900 bg-main-gradient text-white' : 'bg-white text-gray-800'}`}>
+    <div className={`relative h-dvh w-screen overflow-hidden bg-cover bg-no-repeat bg-center ${darkMode ? 'bg-custom-zinc-900 bg-main-gradient text-white' : 'bg-white text-gray-800'}`}>
       
       {/* 標題列 Header (動態顯示 Step 1 ~ 3) */}
-      <div className="absolute top-6 left-0 w-full z-[60] flex justify-center pointer-events-none">
-        <div className="bg-blue-600/90 backdrop-blur-md text-white px-4 py-2 rounded-full font-bold shadow-lg border border-blue-400/30 animate-in fade-in slide-in-from-top-4">
-          {getStepTitle()}
+      <div className="absolute top-0 left-0 w-full z-[60] h-[80px] pointer-events-none">
+        {/* 螢光科技線條 */}
+        <svg 
+          width={headerWidth} 
+          height="80"
+          className="absolute top-0 left-0 w-full h-full drop-shadow-[0_0_5px_rgba(6,182,212,0.8)] pointer-events-none" 
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <linearGradient id="header-line-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#06b6d4" stopOpacity="0" />
+              <stop offset="15%" stopColor="#06b6d4" stopOpacity="1" />
+              <stop offset="85%" stopColor="#06b6d4" stopOpacity="1" />
+              <stop offset="100%" stopColor="#06b6d4" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path 
+            d={headerPathData}
+            fill="none" 
+            stroke="url(#header-line-gradient)" 
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+
+        {/* 標題文字 */}
+        <div className="absolute top-[16px] w-full flex justify-center">
+          <div className="text-cyan-400 font-bold text-lg tracking-widest drop-shadow-[0_0_8px_rgba(6,182,212,0.8)] animate-in fade-in slide-in-from-top-4">
+            {getStepTitle()}
+          </div>
         </div>
       </div>
 
@@ -993,7 +1158,7 @@ const MobileViewerContainer = () => {
 
         {/* Back Button */}
         {SearchResultMode && (
-          <div className="pointer-events-auto absolute left-4">
+          <div className="pointer-events-auto top-[-22] absolute left-4">
             <button onClick={handleBackToSearch} className="p-3 rounded-full bg-white/90 dark:bg-gray-800/90 shadow-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 transition-all hover:scale-110 active:scale-95">
               <ArrowLeft size={24} />
             </button>
@@ -1002,7 +1167,7 @@ const MobileViewerContainer = () => {
 
         {/* Right Button (Open Repair Menu) - Style Matched to Left Button */}
         {SearchResultMode && !showRepairButton && (
-          <div className="pointer-events-auto absolute right-4">
+          <div className="pointer-events-auto top-[-22] absolute right-4">
             <button 
               onClick={() => {
                 setIsQRScannerOpen(true);
@@ -1055,7 +1220,7 @@ const MobileViewerContainer = () => {
 
       {/* Viewpoints Panel */}
       {SearchResultMode && components && (
-        <div className={`absolute bottom-0 left-0 right-0 z-20 p-4 rounded-t-xl shadow-xl transition-transform duration-300 ${darkMode ? 'bg-gray-900 border-t border-gray-700' : 'bg-white border-t border-gray-200'}`} style={{ height: '40vh' }}>
+        <div className={`absolute bottom-0 left-0 right-0 z-20 p-4 rounded-t-xl shadow-xl transition-transform duration-300 ${darkMode ? 'bg-gray-900 border-t border-gray-700' : 'bg-white border-t border-gray-200'}`}>
           <Viewpoints
             darkMode={darkMode}
             createViewpoint={createViewpoint}
@@ -1065,6 +1230,7 @@ const MobileViewerContainer = () => {
             storedViews={storedViews}
             setStoredViews={setStoredViews}
             onDrawPath={handleDrawPath}
+            onClearPath={handleClearPath}
           />
         </div>
       )}
