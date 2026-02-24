@@ -54,9 +54,21 @@ const MobileViewerContainer = () => {
   const markerRef = useRef<OBCF.Marker | null>(null);
   const boxerRef = useRef<OBC.BoundingBoxer | null>(null); 
   const viewpointsRef = useRef<OBC.Viewpoints | null>(null);
+  const pathMeshRef = useRef<THREE.Mesh | null>(null);
 
   const globalCenterRef = useRef<THREE.Vector3 | null>(null);
   const globalBox3Ref = useRef<THREE.Box3 | null>(null);
+
+  const originalColors = useRef(new Map<
+    FRAGS.BIMMaterial, 
+    { 
+      color: number; 
+      transparent: boolean; 
+      opacity: number;
+      vertexColors: boolean;
+      depthWrite: boolean;
+    }
+  >());
 
   const [isUserPanelOpen, setIsUserPanelOpen] = useState(false);
   const [components, setComponents] = useState<OBC.Components | null>(null);
@@ -153,16 +165,16 @@ const MobileViewerContainer = () => {
     try {
         for (const [, model] of fragments.list) {
             if (model.object) {
-                model.object.updateMatrixWorld(true);
-                const modelBox = new THREE.Box3().setFromObject(model.object);
-                if (!modelBox.isEmpty() && isFinite(modelBox.min.x)) {
-                    overallBox.union(modelBox);
-                    foundGeometry = true;
-                }
+              model.object.updateMatrixWorld(true);
+              const modelBox = new THREE.Box3().setFromObject(model.object);
+              if (!modelBox.isEmpty() && isFinite(modelBox.min.x)) {
+                overallBox.union(modelBox);
+                foundGeometry = true;
+              }
             }
         }
     } catch (e) {
-        console.error("Error calculating BBox:", e);
+      console.error("Error calculating BBox:", e);
     }
 
     if (!foundGeometry) return;
@@ -174,10 +186,68 @@ const MobileViewerContainer = () => {
     globalCenterRef.current = center;
   };
 
+  const setModelTransparent = (components: OBC.Components) => {
+    const fragments = components.get(OBC.FragmentsManager);
+    const materials = [...fragments.core.models.materials.list.values()];
+    
+    for (const material of materials) {
+      if (material.userData.customId) continue;
+
+      if (!originalColors.current.has(material)) {
+        let color: number;
+        if ('color' in material) {
+          color = material.color.getHex();
+        } else {
+          color = material.lodColor.getHex();
+        }
+
+        originalColors.current.set(material, {
+          color,
+          transparent: material.transparent,
+          opacity: material.opacity,
+          vertexColors: material.vertexColors,
+          depthWrite: material.depthWrite,
+        });
+      }
+
+      material.transparent = true;
+      material.opacity = 0.1;
+      material.vertexColors = false;
+      material.depthWrite = false;
+      material.needsUpdate = true;
+
+      if ('color' in material) material.color.setRGB(0.2, 0.2, 0.2);
+      else material.lodColor.setRGB(0.2, 0.2, 0.2);
+    }
+  };
+
+  const restoreModelMaterials = () => {
+    for (const [material, data] of originalColors.current) {
+      material.transparent = data.transparent;
+      material.opacity = data.opacity;
+      material.vertexColors = data.vertexColors;
+      material.depthWrite = data.depthWrite;
+      if ('color' in material) material.color.setHex(data.color);
+      else material.lodColor.setHex(data.color);
+      material.needsUpdate = true;
+    }
+    originalColors.current.clear();
+  };
+
+  const handleGhost = () => {
+    if (!componentsRef.current) return;
+    if (isGhost) {
+      restoreModelMaterials();
+      setIsGhost(false);
+    } else {
+      setModelTransparent(componentsRef.current);
+      setIsGhost(true);
+    }
+  };
+
   const onFocus = useCallback(async (mode: 'top-down' | 'isometric' | 'tight-fit' = 'tight-fit') => {
     if (!cameraRef.current || !boxerRef.current || !highlighterRef.current) return;
 
-    // Only set loading if needed, remove global loader dependency if you don't want it visual
     setIsGlobalLoading(true); 
     setLoadingMessage("正在聚焦中");
 
@@ -605,10 +675,17 @@ const MobileViewerContainer = () => {
         setSelectedFragId(firstModelId);
         setSelectedDevice(firstExpressId);
 
-        if(highlighterRef.current) {
-          await highlighterRef.current.clear();
-          await highlighterRef.current.highlightByID("select", selection, true, true);
+        if (highlighterRef.current) {
+          highlighterRef.current.enabled = true; 
+          await highlighterRef.current.clear("select"); 
+          setTimeout(async () => {
+            if (highlighterRef.current) {
+              await highlighterRef.current.highlightByID("select", selection, true, true);
+              highlighterRef.current.enabled = false; 
+            }
+          }, 50); 
         }
+
         if(cameraRef.current) await cameraRef.current.fitToItems(selection);
         
         setToast({ message: `Found ${foundElements.length} elements`, type: "success" });
@@ -697,8 +774,14 @@ const MobileViewerContainer = () => {
         setSelectedDevice(firstExpressId);
 
         if (highlighterRef.current) {
-          await highlighterRef.current.clear();
-          await highlighterRef.current.highlightByID("select", selection, true, true);
+          highlighterRef.current.enabled = true; 
+          await highlighterRef.current.clear("select"); 
+          setTimeout(async () => {
+            if (highlighterRef.current) {
+              await highlighterRef.current.highlightByID("select", selection, true, true);
+              highlighterRef.current.enabled = false; 
+            }
+          }, 50); 
         }
         
         if (cameraRef.current) {
@@ -720,7 +803,25 @@ const MobileViewerContainer = () => {
 
   const handleBackToSearch = () => {
     setSearchResultMode(false);
-    if (highlighterRef.current) highlighterRef.current.clear();
+    setShowRepairButton(false);
+
+    if (isGhost) {
+      restoreModelMaterials();
+      setIsGhost(false);
+    }
+
+    if (highlighterRef.current) {
+      highlighterRef.current.enabled = true;
+      highlighterRef.current.clear(); 
+    }
+
+    if (pathMeshRef.current && worldRef.current) {
+      worldRef.current.scene.three.remove(pathMeshRef.current);
+      pathMeshRef.current.geometry.dispose();
+      (pathMeshRef.current.material as THREE.Material).dispose();
+      pathMeshRef.current = null;
+    }
+
     setSelectedFragId(null);
     setSelectedDevice(null);
   };
@@ -732,6 +833,82 @@ const MobileViewerContainer = () => {
     setTimeout(() => { handleLocateElementByName(); }, 100);
     setIsQRScannerOpen(false);
     setShowRepairButton(false);
+  };
+
+  const handleDrawPath = async (doorName: string) => {
+    if (!worldRef.current || !globalBox3Ref.current || !globalCenterRef.current) return;
+    
+    const scene = worldRef.current.scene.three;
+
+    if (pathMeshRef.current) {
+      scene.remove(pathMeshRef.current);
+      pathMeshRef.current.geometry.dispose();
+      (pathMeshRef.current.material as THREE.Material).dispose();
+      pathMeshRef.current = null;
+    }
+
+    const validDoors = ["Front Door", "Back Door", "Left Door", "Right Door"];
+    if (!validDoors.includes(doorName) || !selectedFragId || !selectedDevice) return;
+
+    if (!isGhost && componentsRef.current) {
+      setModelTransparent(componentsRef.current);
+      setIsGhost(true);
+    }
+
+    const boxer = boxerRef.current;
+    if (!boxer) return;
+    boxer.list.clear();
+    await boxer.addFromModelIdMap({ [selectedFragId]: new Set([selectedDevice]) });
+    const elementBox = boxer.get();
+    if (elementBox.isEmpty()) return;
+    
+    const targetCenter = new THREE.Vector3();
+    elementBox.getCenter(targetCenter);
+
+    const gBox = globalBox3Ref.current;
+    const gCenter = globalCenterRef.current;
+    const size = new THREE.Vector3();
+    gBox.getSize(size);
+    
+    const groundY = gBox.min.y;
+    const dist = Math.max(size.x, size.z) / 2 + 2;
+
+    // 計算路徑的三個關鍵點 (Start ➔ Elevator ➔ Element Floor ➔ Target)
+    let startPt = new THREE.Vector3();
+    if (doorName === "Front Door") startPt.set(gCenter.x, groundY, gCenter.z + dist);
+    else if (doorName === "Back Door") startPt.set(gCenter.x, groundY, gCenter.z - dist);
+    else if (doorName === "Left Door") startPt.set(gCenter.x - dist, groundY, gCenter.z);
+    else if (doorName === "Right Door") startPt.set(gCenter.x + dist, groundY, gCenter.z);
+
+    const elevatorGroundPt = new THREE.Vector3(gCenter.x, groundY, gCenter.z);
+    const elevatorTargetPt = new THREE.Vector3(gCenter.x, targetCenter.y, gCenter.z);
+
+    // 建立曲線路徑
+    const path = new THREE.CurvePath<THREE.Vector3>();
+    path.add(new THREE.LineCurve3(startPt, elevatorGroundPt)); // 進大門走向電梯
+    path.add(new THREE.LineCurve3(elevatorGroundPt, elevatorTargetPt)); // 搭電梯垂直向上
+    path.add(new THREE.LineCurve3(elevatorTargetPt, targetCenter)); // 出電梯走向目標元件
+
+    const tubeGeometry = new THREE.TubeGeometry(path, 64, 0.2, 8, false);
+    
+    const material = new THREE.MeshBasicMaterial({ 
+      color: 0xff0000, 
+      depthTest: false, 
+      transparent: true, 
+      opacity: 0.8 
+    });
+
+    const pathMesh = new THREE.Mesh(tubeGeometry, material);
+    pathMesh.renderOrder = 999;
+
+    scene.add(pathMesh);
+    pathMeshRef.current = pathMesh;
+  };
+
+  const getStepTitle = () => {
+    if (showRepairButton) return "Step 3 : Finish Repair Request Form";
+    if (SearchResultMode) return "Step 2 : Path to Element";
+    return "Step 1 : Search Element";
   };
 
   // Init
@@ -803,6 +980,14 @@ const MobileViewerContainer = () => {
 
   return (
     <div className={`relative h-dvh w-screen overflow-hidden ${darkMode ? 'bg-custom-zinc-900 bg-main-gradient text-white' : 'bg-white text-gray-800'}`}>
+      
+      {/* 標題列 Header (動態顯示 Step 1 ~ 3) */}
+      <div className="absolute top-6 left-0 w-full z-[60] flex justify-center pointer-events-none">
+        <div className="bg-blue-600/90 backdrop-blur-md text-white px-4 py-2 rounded-full font-bold shadow-lg border border-blue-400/30 animate-in fade-in slide-in-from-top-4">
+          {getStepTitle()}
+        </div>
+      </div>
+
       {/* Search Bars Area */}
       <div className="absolute top-22 left-0 w-full z-40 flex justify-center px-2 pointer-events-none">
 
@@ -816,7 +1001,7 @@ const MobileViewerContainer = () => {
         )}
 
         {/* Right Button (Open Repair Menu) - Style Matched to Left Button */}
-        {SearchResultMode && (
+        {SearchResultMode && !showRepairButton && (
           <div className="pointer-events-auto absolute right-4">
             <button 
               onClick={() => {
@@ -879,6 +1064,7 @@ const MobileViewerContainer = () => {
             getViewpointSnapshotData={getViewpointSnapshotData}
             storedViews={storedViews}
             setStoredViews={setStoredViews}
+            onDrawPath={handleDrawPath}
           />
         </div>
       )}
@@ -887,7 +1073,10 @@ const MobileViewerContainer = () => {
       {isQRScannerOpen && (
         <>
           <QRScannerModal 
-            onClose={() => setIsQRScannerOpen(false)} 
+            onClose={() => {
+              setIsQRScannerOpen(false);
+              setShowRepairButton(false);
+            }} 
             onScan={handleQRScan} 
             darkMode={darkMode} 
           />

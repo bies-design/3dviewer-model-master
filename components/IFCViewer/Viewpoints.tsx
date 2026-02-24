@@ -9,6 +9,7 @@ export interface StoredViewpoint {
   title: string;
   snapshot: string | null;
   viewpoint: OBC.Viewpoint;
+  userData?: any;
 }
 
 interface ViewpointsProps {
@@ -19,6 +20,7 @@ interface ViewpointsProps {
   getViewpointSnapshotData: (viewpoint: OBC.Viewpoint) => string | null;
   storedViews: StoredViewpoint[];
   setStoredViews: React.Dispatch<React.SetStateAction<StoredViewpoint[]>>;
+  onDrawPath?: (doorName: string) => void; 
 }
 
 export default function Viewpoints({
@@ -29,6 +31,7 @@ export default function Viewpoints({
   getViewpointSnapshotData,
   storedViews,
   setStoredViews,
+  onDrawPath,
 }: ViewpointsProps) {
   const { t } = useTranslation();
   const [isClient, setIsClient] = useState(false);
@@ -60,6 +63,9 @@ export default function Viewpoints({
   const selectViewpoint = (view: StoredViewpoint) => {
     setCurrentView(view);
     setWorldCamera(view.viewpoint);
+    if (onDrawPath) {
+      onDrawPath(view.title);
+    }
   };
 
   const refreshSnapshot = async (view?: StoredViewpoint) => {
@@ -86,28 +92,17 @@ export default function Viewpoints({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <h2 className="text-lg font-bold mb-2 sticky top-0 bg-inherit z-10">{isClient ? t("viewpoints") : "Viewpoints"}</h2>
+      {/* <h2 className="text-lg font-bold mb-2 sticky top-0 bg-inherit z-10">{isClient ? t("viewpoints") : "Viewpoints"}</h2> */}
+      <h2 className="text-lg font-bold mb-2 sticky top-0 bg-inherit z-10">Entrances</h2>
 
-      <div className="flex-shrink-0 space-y-2 mb-2">
+      {/* <div className="flex-shrink-0 space-y-2 mb-2">
         <button
             className={`w-full py-2 rounded cursor-pointer text-white font-medium transition-colors ${darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'}`}
             onClick={handleAddViewpoint}
         >
             {isClient ? t("create_viewpoint") : "Create Viewpoint"}
         </button>
-
-        {/* {currentView && (
-          <button
-          className={`w-full py-2 rounded cursor-pointer text-white font-medium transition-colors ${darkMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-purple-500 hover:bg-purple-600'}`}
-          onClick={async () => {
-              await updateViewpointCamera(currentView.viewpoint);
-              await refreshSnapshot(currentView);
-          }}
-          >
-          {isClient ? t("update_camera_snapshot") : "Update Camera & Snapshot"}
-          </button>
-        )} */}
-      </div>
+      </div> */}
 
       <div className="flex-1 overflow-y-auto pr-1 space-y-2 min-h-0">
         {storedViews.length === 0 && (
