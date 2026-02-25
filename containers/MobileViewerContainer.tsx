@@ -568,7 +568,29 @@ const MobileViewerContainer = () => {
               console.warn("無法取得門的名稱", err);
             }
 
-            doorList.push({ modelId, expressId: id, center, name: doorName });
+            let isMatch = true;
+            
+            const targetStr = `${selectedDeviceName || ""} ${elementSearchTerm || ""} ${issueIdSearchTerm || ""}`.toUpperCase();
+
+            if (targetStr) {
+              const doorUpper = doorName.toUpperCase();
+              
+              const isSouthDevice = /S\d+F/.test(targetStr) || targetStr.includes('-S') || targetStr.match(/^S/);
+              const isNorthDevice = /N\d+F/.test(targetStr) || targetStr.includes('-N') || targetStr.match(/^N/);
+              
+              const isSouthDoor = doorUpper.includes('D-S') || doorUpper.includes('-S');
+              const isNorthDoor = doorUpper.includes('D-N') || doorUpper.includes('-N');
+
+              if (isSouthDevice && !isNorthDevice && isNorthDoor) {
+                isMatch = false;
+              }
+              else if (isNorthDevice && !isSouthDevice && isSouthDoor) {
+                isMatch = false;
+              }
+            }
+            if (isMatch) {
+              doorList.push({ modelId, expressId: id, center, name: doorName });
+            }
           }
         }
       } catch (e) {
@@ -756,6 +778,14 @@ const MobileViewerContainer = () => {
         setSelectedFragId(firstModelId);
         setSelectedDevice(firstExpressId);
 
+        const firstElem = foundElements[0];
+        if (firstElem && firstElem.attributes && firstElem.attributes.Name) {
+          const nameVal = firstElem.attributes.Name.value !== undefined ? firstElem.attributes.Name.value : firstElem.attributes.Name;
+          setSelectedDeviceName(nameVal);
+        } else {
+          setSelectedDeviceName(elementSearchTerm);
+        }
+
         if (highlighterRef.current) {
           highlighterRef.current.enabled = true; 
           await highlighterRef.current.clear("select"); 
@@ -854,6 +884,14 @@ const MobileViewerContainer = () => {
         setSelectedFragId(firstModelId);
         setSelectedDevice(firstExpressId);
 
+        const firstElem = foundElements[0];
+        if (firstElem && firstElem.attributes && firstElem.attributes.Name) {
+          const nameVal = firstElem.attributes.Name.value !== undefined ? firstElem.attributes.Name.value : firstElem.attributes.Name;
+          setSelectedDeviceName(nameVal);
+        } else {
+          setSelectedDeviceName(issueIdSearchTerm);
+        }
+
         if (highlighterRef.current) {
           highlighterRef.current.enabled = true; 
           await highlighterRef.current.clear("select"); 
@@ -905,6 +943,9 @@ const MobileViewerContainer = () => {
 
     setSelectedFragId(null);
     setSelectedDevice(null);
+    setStoredViews([]); 
+    setSelectedDeviceName(""); 
+    setIssueIdSearchTerm("");
   };
 
   const handleQRScan = (data: string | null) => {
@@ -931,31 +972,33 @@ const MobileViewerContainer = () => {
       pathMeshRef.current = null;
     }
 
+    if (!view.userData || !view.userData.center) return;
+    if (!selectedFragId || !selectedDevice) return;
+
     if (!isGhost && componentsRef.current) {
       setModelTransparent(componentsRef.current);
       setIsGhost(true);
     }
 
-    if (!view.userData || !view.userData.center) return;
-    if (!selectedFragId || !selectedDevice) return;
+    setTimeout(async () => {
+      if (highlighterRef.current) {
+        const selection: OBC.ModelIdMap = {};
+        
+        selection[selectedFragId] = new Set([selectedDevice]);
+        
+        if (view.userData.modelId && view.userData.expressId) {
+          const dModel = view.userData.modelId;
+          const dId = view.userData.expressId;
+          if (!selection[dModel]) selection[dModel] = new Set();
+          selection[dModel].add(dId);
+        }
 
-    if (highlighterRef.current) {
-      const selection: OBC.ModelIdMap = {};
-      
-      selection[selectedFragId] = new Set([selectedDevice]);
-      
-      if (view.userData.modelId && view.userData.expressId) {
-        const dModel = view.userData.modelId;
-        const dId = view.userData.expressId;
-        if (!selection[dModel]) selection[dModel] = new Set();
-        selection[dModel].add(dId);
+        highlighterRef.current.enabled = true;
+        await highlighterRef.current.clear("select");
+        await highlighterRef.current.highlightByID("select", selection, true, false); 
+        highlighterRef.current.enabled = false;
       }
-
-      highlighterRef.current.enabled = true;
-      await highlighterRef.current.clear("select");
-      await highlighterRef.current.highlightByID("select", selection, true, false);
-      highlighterRef.current.enabled = false;
-    }
+    }, 500);
 
     const boxer = boxerRef.current;
     if (!boxer) return;
@@ -970,8 +1013,25 @@ const MobileViewerContainer = () => {
     const gCenter = globalCenterRef.current;
     const startPt = view.userData.center as THREE.Vector3;
 
-    const elevatorGroundPt = new THREE.Vector3(gCenter.x, startPt.y, gCenter.z);
-    const elevatorTargetPt = new THREE.Vector3(gCenter.x, targetCenter.y, gCenter.z);
+    let elevatorX = gCenter.x;
+    let elevatorZ = gCenter.z; 
+
+    const gSize = new THREE.Vector3();
+    globalBox3Ref.current.getSize(gSize);
+    
+    const offset = gSize.z / 4; 
+
+    const deviceNameUpper = selectedDeviceName ? selectedDeviceName.toUpperCase() : "";
+
+    if (deviceNameUpper.startsWith('S') || deviceNameUpper.startsWith('N')) {
+      const sign = targetCenter.z > gCenter.z ? 1 : -1;
+      
+      elevatorZ = gCenter.z + sign * offset;
+      elevatorX = gCenter.x; 
+    }
+
+    const elevatorGroundPt = new THREE.Vector3(elevatorX, startPt.y, elevatorZ);
+    const elevatorTargetPt = new THREE.Vector3(elevatorX, targetCenter.y, elevatorZ);
 
     const path = new THREE.CurvePath<THREE.Vector3>();
     const segmentBox = new THREE.Box3();
@@ -1231,6 +1291,8 @@ const MobileViewerContainer = () => {
             setStoredViews={setStoredViews}
             onDrawPath={handleDrawPath}
             onClearPath={handleClearPath}
+            targetFloor={selectedFragId ? extractFloorFromModelId(selectedFragId)?.replace('F', '樓') || "目標樓層" : "目標樓層"}
+            targetName={selectedDeviceName || "設備位置"}
           />
         </div>
       )}

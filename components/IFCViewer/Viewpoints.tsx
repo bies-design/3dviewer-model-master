@@ -25,6 +25,8 @@ interface ViewpointsProps {
   setStoredViews: React.Dispatch<React.SetStateAction<StoredViewpoint[]>>;
   onDrawPath?: (view: StoredViewpoint, segment: PathSegment) => void;
   onClearPath?: () => void;
+  targetFloor: string; 
+  targetName: string;
 }
 
 export default function Viewpoints({
@@ -34,6 +36,8 @@ export default function Viewpoints({
   setStoredViews,
   onDrawPath,
   onClearPath,
+  targetFloor,
+  targetName
 }: ViewpointsProps) {
   const { t } = useTranslation();
   
@@ -99,7 +103,7 @@ export default function Viewpoints({
       {!selectedEntrance ? (
         <>
           <div className="flex items-center justify-between mb-2 sticky top-0 bg-inherit z-10">
-            <h2 className="text-lg font-bold">Entrances</h2>
+            <h2 className="text-lg font-bold">入口</h2>
             <button 
               onClick={() => setIsCollapsed(!isCollapsed)}
               className={`p-1 rounded-full transition-colors ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-200 text-gray-700'}`}
@@ -156,7 +160,7 @@ export default function Viewpoints({
               >
                 <ArrowLeft size={18} />
               </button>
-              <h2 className="text-lg font-bold truncate">Path: {selectedEntrance.title}</h2>
+              <h2 className="text-lg font-bold truncate">路徑: {selectedEntrance.title}</h2>
             </div>
             
             <button 
@@ -169,9 +173,9 @@ export default function Viewpoints({
           
           {!isCollapsed && (
             <div className="flex-1 overflow-y-auto pr-1 space-y-3 min-h-0 pt-1">
-              {renderSegmentBtn('door-to-elevator', '1. 門口 走到 電梯')}
-              {renderSegmentBtn('elevator-vertical', '2. 搭乘電梯 垂直移動')}
-              {renderSegmentBtn('elevator-to-device', '3. 出電梯 到 設備位置')}
+              {renderSegmentBtn('door-to-elevator', '1. 門口 走到 1號電梯')}
+              {renderSegmentBtn('elevator-vertical', `2. 搭乘電梯 移動到 ${targetFloor}`)}
+              {renderSegmentBtn('elevator-to-device', `3. 出電梯 到 ${targetName}`)}
             </div>
           )}
         </>
