@@ -99,7 +99,7 @@ export default function Viewpoints({
   };
 
   return (
-    <div className={`flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${isCollapsed ? 'h-auto' : 'h-[40vh]'}`}>
+    <div className={`flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${isCollapsed ? 'h-auto' : 'h-[45dvh] max-h-[400px]'}`}>
       {!selectedEntrance ? (
         <>
           <div className="flex items-center justify-between mb-2 sticky top-0 bg-inherit z-10">

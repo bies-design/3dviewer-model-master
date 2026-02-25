@@ -19,6 +19,8 @@ import AssetsPanel from "@/components/IFCViewer/AssetsPanel";
 import MobileSearchPanel from "@/components/IFCViewer/MobileSearchPanel";
 import Viewpoints, { StoredViewpoint } from "@/components/IFCViewer/Viewpoints";
 import QRScannerModal from "@/components/IFCViewer/QRScannerModal";
+import { useRouter } from "next/navigation";
+import MobileIssueModal from '@/components/IFCViewer/MobileIssueModal';
 
 type ItemProps = Record<string, any>;
 type PsetDict = Record<string, Record<string, any>>;
@@ -74,6 +76,7 @@ const MobileViewerContainer = () => {
   const [components, setComponents] = useState<OBC.Components | null>(null);
   const [progress, setProgress] = useState(0);
   const [showProgressModal, setShowProgressModal] = useState(false);
+  const [showIssueFormModal, setShowIssueFormModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [infoLoading, setInfoLoading] = useState(false);
@@ -701,9 +704,13 @@ const MobileViewerContainer = () => {
   };
 
   // --- Handle Logic ---
-  const handleIssueForms = async() => {
-    console.log("Open Issue Form logic triggered (Disabled)");
-    setToast({ message: "報修表單功能開發中", type: "success" });
+  const router = useRouter();
+  const handleIssueForms = async () => {
+    if (!selectedFragId || selectedDevice === null) {
+      setToast({ message: "無法取得設備資訊，請重新選取", type: "warning" });
+      return;
+    }
+    setShowIssueFormModal(true);
   };
 
   const handleLocateElementByName = async () => {
@@ -1320,6 +1327,18 @@ const MobileViewerContainer = () => {
               </div>
             )}
         </>
+      )}
+
+      {/* 報修表單彈出視窗 */}
+      {showIssueFormModal && selectedFragId && selectedDevice !== null && (
+        <MobileIssueModal
+          onClose={() => setShowIssueFormModal(false)}
+          darkMode={darkMode}
+          expressId={selectedDevice}
+          modelId={selectedFragId}
+          deviceName={selectedDeviceName || "未知設備"}
+          floor={extractFloorFromModelId(selectedFragId)?.replace('F', '樓') || "未知樓層"}
+        />
       )}
 
       <LoadingModal darkMode={darkMode} progress={progress} show={showProgressModal} />
