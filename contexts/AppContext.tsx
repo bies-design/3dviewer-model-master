@@ -4,7 +4,6 @@ import React, { createContext, useState, useContext, useEffect } from "react";
 import { useSession } from "next-auth/react"; // Import useSession
 import { viewerApi, ViewerAPI } from "@/lib/viewer-api";
 import { User } from "@/types/mongodb"; // Import User interface from types/mongodb
-import { stat } from "fs";
 
 interface AppContextType {
   darkMode: boolean;

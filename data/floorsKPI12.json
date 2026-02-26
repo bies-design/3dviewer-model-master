@@ -1,0 +1,257 @@
+{
+    "description": "3D EMS Floor KPI Simulation Data (60s Duration, 5s Interval)",
+    "floorKPI_History": [
+        {
+        "step": 1,
+        "timestamp": "2026-02-26T10:00:00Z",
+        "data": [
+            { "floor": "all", "kw": 92.45, "temp": 24.1, "humi": 48, "co2": 580, "timestamp": "2026-02-26T10:00:00Z" },
+            { "floor": "SR1F", "kw": 18.20, "temp": 22.1, "humi": 45, "co2": 410, "timestamp": "2026-02-26T10:00:00Z" },
+            { "floor": "13F", "kw": 10.45, "temp": 24.5, "humi": 48, "co2": 612, "timestamp": "2026-02-26T10:00:00Z" },
+            { "floor": "12F", "kw": 8.12, "temp": 25.2, "humi": 50, "co2": 590, "timestamp": "2026-02-26T10:00:00Z" },
+            { "floor": "11F", "kw": 5.60, "temp": 23.8, "humi": 47, "co2": 550, "timestamp": "2026-02-26T10:00:00Z" },
+            { "floor": "10F", "kw": 4.30, "temp": 24.0, "humi": 46, "co2": 520, "timestamp": "2026-02-26T10:00:00Z" },
+            { "floor": "09F", "kw": 7.80, "temp": 24.5, "humi": 49, "co2": 630, "timestamp": "2026-02-26T10:00:00Z" },
+            { "floor": "08F", "kw": 6.15, "temp": 23.9, "humi": 48, "co2": 605, "timestamp": "2026-02-26T10:00:00Z" },
+            { "floor": "07F", "kw": 5.40, "temp": 24.2, "humi": 50, "co2": 580, "timestamp": "2026-02-26T10:00:00Z" },
+            { "floor": "06F", "kw": 4.90, "temp": 24.1, "humi": 49, "co2": 570, "timestamp": "2026-02-26T10:00:00Z" },
+            { "floor": "05F", "kw": 5.25, "temp": 23.7, "humi": 47, "co2": 560, "timestamp": "2026-02-26T10:00:00Z" },
+            { "floor": "04F", "kw": 4.10, "temp": 24.0, "humi": 46, "co2": 540, "timestamp": "2026-02-26T10:00:00Z" },
+            { "floor": "03F", "kw": 3.90, "temp": 24.3, "humi": 48, "co2": 555, "timestamp": "2026-02-26T10:00:00Z" },
+            { "floor": "02F", "kw": 3.88, "temp": 24.4, "humi": 49, "co2": 565, "timestamp": "2026-02-26T10:00:00Z" },
+            { "floor": "01F", "kw": 4.40, "temp": 24.5, "humi": 51, "co2": 593, "timestamp": "2026-02-26T10:00:00Z" }
+        ]
+        },
+        {
+        "step": 2,
+        "timestamp": "2026-02-26T10:00:05Z",
+        "data": [
+            { "floor": "all", "kw": 92.68, "temp": 24.1, "humi": 48, "co2": 581, "timestamp": "2026-02-26T10:00:05Z" },
+            { "floor": "SR1F", "kw": 18.25, "temp": 22.1, "humi": 45, "co2": 411, "timestamp": "2026-02-26T10:00:05Z" },
+            { "floor": "13F", "kw": 10.48, "temp": 24.5, "humi": 48, "co2": 613, "timestamp": "2026-02-26T10:00:05Z" },
+            { "floor": "12F", "kw": 8.15, "temp": 25.2, "humi": 50, "co2": 591, "timestamp": "2026-02-26T10:00:05Z" },
+            { "floor": "11F", "kw": 5.62, "temp": 23.8, "humi": 47, "co2": 551, "timestamp": "2026-02-26T10:00:05Z" },
+            { "floor": "10F", "kw": 4.31, "temp": 24.0, "humi": 46, "co2": 521, "timestamp": "2026-02-26T10:00:05Z" },
+            { "floor": "09F", "kw": 7.82, "temp": 24.5, "humi": 49, "co2": 632, "timestamp": "2026-02-26T10:00:05Z" },
+            { "floor": "08F", "kw": 6.17, "temp": 23.9, "humi": 48, "co2": 606, "timestamp": "2026-02-26T10:00:05Z" },
+            { "floor": "07F", "kw": 5.42, "temp": 24.2, "humi": 50, "co2": 581, "timestamp": "2026-02-26T10:00:05Z" },
+            { "floor": "06F", "kw": 4.91, "temp": 24.1, "humi": 49, "co2": 571, "timestamp": "2026-02-26T10:00:05Z" },
+            { "floor": "05F", "kw": 5.27, "temp": 23.7, "humi": 47, "co2": 561, "timestamp": "2026-02-26T10:00:05Z" },
+            { "floor": "04F", "kw": 4.11, "temp": 24.0, "humi": 46, "co2": 541, "timestamp": "2026-02-26T10:00:05Z" },
+            { "floor": "03F", "kw": 3.91, "temp": 24.3, "humi": 48, "co2": 556, "timestamp": "2026-02-26T10:00:05Z" },
+            { "floor": "02F", "kw": 3.84, "temp": 24.4, "humi": 49, "co2": 566, "timestamp": "2026-02-26T10:00:05Z" },
+            { "floor": "01F", "kw": 4.42, "temp": 24.5, "humi": 51, "co2": 594, "timestamp": "2026-02-26T10:00:05Z" }
+        ]
+        },
+        {
+        "step": 3,
+        "timestamp": "2026-02-26T10:00:10Z",
+        "data": [
+            { "floor": "all", "kw": 92.85, "temp": 24.1, "humi": 48, "co2": 582, "timestamp": "2026-02-26T10:00:10Z" },
+            { "floor": "SR1F", "kw": 18.28, "temp": 22.1, "humi": 45, "co2": 412, "timestamp": "2026-02-26T10:00:10Z" },
+            { "floor": "13F", "kw": 10.50, "temp": 24.5, "humi": 48, "co2": 614, "timestamp": "2026-02-26T10:00:10Z" },
+            { "floor": "12F", "kw": 8.18, "temp": 25.2, "humi": 50, "co2": 592, "timestamp": "2026-02-26T10:00:10Z" },
+            { "floor": "11F", "kw": 5.64, "temp": 23.8, "humi": 47, "co2": 552, "timestamp": "2026-02-26T10:00:10Z" },
+            { "floor": "10F", "kw": 4.33, "temp": 24.0, "humi": 46, "co2": 522, "timestamp": "2026-02-26T10:00:10Z" },
+            { "floor": "09F", "kw": 7.84, "temp": 24.5, "humi": 49, "co2": 634, "timestamp": "2026-02-26T10:00:10Z" },
+            { "floor": "08F", "kw": 6.19, "temp": 23.9, "humi": 48, "co2": 607, "timestamp": "2026-02-26T10:00:10Z" },
+            { "floor": "07F", "kw": 5.44, "temp": 24.2, "humi": 50, "co2": 582, "timestamp": "2026-02-26T10:00:10Z" },
+            { "floor": "06F", "kw": 4.93, "temp": 24.1, "humi": 49, "co2": 572, "timestamp": "2026-02-26T10:00:10Z" },
+            { "floor": "05F", "kw": 5.29, "temp": 23.7, "humi": 47, "co2": 562, "timestamp": "2026-02-26T10:00:10Z" },
+            { "floor": "04F", "kw": 4.13, "temp": 24.0, "humi": 46, "co2": 542, "timestamp": "2026-02-26T10:00:10Z" },
+            { "floor": "03F", "kw": 3.93, "temp": 24.3, "humi": 48, "co2": 557, "timestamp": "2026-02-26T10:00:10Z" },
+            { "floor": "02F", "kw": 3.86, "temp": 24.4, "humi": 49, "co2": 567, "timestamp": "2026-02-26T10:00:10Z" },
+            { "floor": "01F", "kw": 4.44, "temp": 24.5, "humi": 51, "co2": 595, "timestamp": "2026-02-26T10:00:10Z" }
+        ]
+        },
+        {
+        "step": 4,
+        "timestamp": "2026-02-26T10:00:15Z",
+        "data": [
+            { "floor": "all", "kw": 92.91, "temp": 24.1, "humi": 48, "co2": 583, "timestamp": "2026-02-26T10:00:15Z" },
+            { "floor": "SR1F", "kw": 18.26, "temp": 22.1, "humi": 45, "co2": 412, "timestamp": "2026-02-26T10:00:15Z" },
+            { "floor": "13F", "kw": 10.52, "temp": 24.5, "humi": 48, "co2": 614, "timestamp": "2026-02-26T10:00:15Z" },
+            { "floor": "12F", "kw": 8.16, "temp": 25.2, "humi": 50, "co2": 592, "timestamp": "2026-02-26T10:00:15Z" },
+            { "floor": "11F", "kw": 5.63, "temp": 23.8, "humi": 47, "co2": 552, "timestamp": "2026-02-26T10:00:15Z" },
+            { "floor": "10F", "kw": 4.32, "temp": 24.0, "humi": 46, "co2": 522, "timestamp": "2026-02-26T10:00:15Z" },
+            { "floor": "09F", "kw": 7.85, "temp": 24.5, "humi": 49, "co2": 634, "timestamp": "2026-02-26T10:00:15Z" },
+            { "floor": "08F", "kw": 6.21, "temp": 23.9, "humi": 48, "co2": 607, "timestamp": "2026-02-26T10:00:15Z" },
+            { "floor": "07F", "kw": 5.45, "temp": 24.2, "humi": 50, "co2": 583, "timestamp": "2026-02-26T10:00:15Z" },
+            { "floor": "06F", "kw": 4.95, "temp": 24.1, "humi": 49, "co2": 573, "timestamp": "2026-02-26T10:00:15Z" },
+            { "floor": "05F", "kw": 5.31, "temp": 23.7, "humi": 47, "co2": 563, "timestamp": "2026-02-26T10:00:15Z" },
+            { "floor": "04F", "kw": 4.15, "temp": 24.0, "humi": 46, "co2": 543, "timestamp": "2026-02-26T10:00:15Z" },
+            { "floor": "03F", "kw": 3.95, "temp": 24.3, "humi": 48, "co2": 558, "timestamp": "2026-02-26T10:00:15Z" },
+            { "floor": "02F", "kw": 3.87, "temp": 24.4, "humi": 49, "co2": 568, "timestamp": "2026-02-26T10:00:15Z" },
+            { "floor": "01F", "kw": 4.47, "temp": 24.5, "humi": 51, "co2": 596, "timestamp": "2026-02-26T10:00:15Z" }
+        ]
+        },
+        {
+        "step": 5,
+        "timestamp": "2026-02-26T10:00:20Z",
+        "data": [
+            { "floor": "all", "kw": 93.07, "temp": 24.1, "humi": 48, "co2": 584, "timestamp": "2026-02-26T10:00:20Z" },
+            { "floor": "SR1F", "kw": 18.30, "temp": 22.1, "humi": 45, "co2": 413, "timestamp": "2026-02-26T10:00:20Z" },
+            { "floor": "13F", "kw": 10.55, "temp": 24.5, "humi": 48, "co2": 615, "timestamp": "2026-02-26T10:00:20Z" },
+            { "floor": "12F", "kw": 8.19, "temp": 25.2, "humi": 50, "co2": 593, "timestamp": "2026-02-26T10:00:20Z" },
+            { "floor": "11F", "kw": 5.66, "temp": 23.8, "humi": 47, "co2": 553, "timestamp": "2026-02-26T10:00:20Z" },
+            { "floor": "10F", "kw": 4.35, "temp": 24.0, "humi": 46, "co2": 523, "timestamp": "2026-02-26T10:00:20Z" },
+            { "floor": "09F", "kw": 7.87, "temp": 24.5, "humi": 49, "co2": 635, "timestamp": "2026-02-26T10:00:20Z" },
+            { "floor": "08F", "kw": 6.23, "temp": 23.9, "humi": 48, "co2": 608, "timestamp": "2026-02-26T10:00:20Z" },
+            { "floor": "07F", "kw": 5.47, "temp": 24.2, "humi": 50, "co2": 584, "timestamp": "2026-02-26T10:00:20Z" },
+            { "floor": "06F", "kw": 4.97, "temp": 24.1, "humi": 49, "co2": 574, "timestamp": "2026-02-26T10:00:20Z" },
+            { "floor": "05F", "kw": 5.33, "temp": 23.7, "humi": 47, "co2": 564, "timestamp": "2026-02-26T10:00:20Z" },
+            { "floor": "04F", "kw": 4.17, "temp": 24.0, "humi": 46, "co2": 544, "timestamp": "2026-02-26T10:00:20Z" },
+            { "floor": "03F", "kw": 3.97, "temp": 24.3, "humi": 48, "co2": 559, "timestamp": "2026-02-26T10:00:20Z" },
+            { "floor": "02F", "kw": 3.89, "temp": 24.4, "humi": 49, "co2": 569, "timestamp": "2026-02-26T10:00:20Z" },
+            { "floor": "01F", "kw": 4.49, "temp": 24.5, "humi": 51, "co2": 597, "timestamp": "2026-02-26T10:00:20Z" }
+        ]
+        },
+        {
+        "step": 6,
+        "timestamp": "2026-02-26T10:00:25Z",
+        "data": [
+            { "floor": "all", "kw": 92.93, "temp": 24.1, "humi": 48, "co2": 585, "timestamp": "2026-02-26T10:00:25Z" },
+            { "floor": "SR1F", "kw": 18.28, "temp": 22.1, "humi": 45, "co2": 414, "timestamp": "2026-02-26T10:00:25Z" },
+            { "floor": "13F", "kw": 10.53, "temp": 24.5, "humi": 48, "co2": 616, "timestamp": "2026-02-26T10:00:25Z" },
+            { "floor": "12F", "kw": 8.17, "temp": 25.2, "humi": 50, "co2": 594, "timestamp": "2026-02-26T10:00:25Z" },
+            { "floor": "11F", "kw": 5.64, "temp": 23.8, "humi": 47, "co2": 554, "timestamp": "2026-02-26T10:00:25Z" },
+            { "floor": "10F", "kw": 4.33, "temp": 24.0, "humi": 46, "co2": 524, "timestamp": "2026-02-26T10:00:25Z" },
+            { "floor": "09F", "kw": 7.85, "temp": 24.5, "humi": 49, "co2": 636, "timestamp": "2026-02-26T10:00:25Z" },
+            { "floor": "08F", "kw": 6.21, "temp": 23.9, "humi": 48, "co2": 609, "timestamp": "2026-02-26T10:00:25Z" },
+            { "floor": "07F", "kw": 5.45, "temp": 24.2, "humi": 50, "co2": 585, "timestamp": "2026-02-26T10:00:25Z" },
+            { "floor": "06F", "kw": 4.95, "temp": 24.1, "humi": 49, "co2": 575, "timestamp": "2026-02-26T10:00:25Z" },
+            { "floor": "05F", "kw": 5.31, "temp": 23.7, "humi": 47, "co2": 565, "timestamp": "2026-02-26T10:00:25Z" },
+            { "floor": "04F", "kw": 4.15, "temp": 24.0, "humi": 46, "co2": 545, "timestamp": "2026-02-26T10:00:25Z" },
+            { "floor": "03F", "kw": 3.95, "temp": 24.3, "humi": 48, "co2": 560, "timestamp": "2026-02-26T10:00:25Z" },
+            { "floor": "02F", "kw": 3.87, "temp": 24.4, "humi": 49, "co2": 570, "timestamp": "2026-02-26T10:00:25Z" },
+            { "floor": "01F", "kw": 4.47, "temp": 24.5, "humi": 51, "co2": 598, "timestamp": "2026-02-26T10:00:25Z" }
+        ]
+        },
+        {
+        "step": 7,
+        "timestamp": "2026-02-26T10:00:30Z",
+        "data": [
+            { "floor": "all", "kw": 93.18, "temp": 24.1, "humi": 48, "co2": 586, "timestamp": "2026-02-26T10:00:30Z" },
+            { "floor": "SR1F", "kw": 18.33, "temp": 22.1, "humi": 45, "co2": 415, "timestamp": "2026-02-26T10:00:30Z" },
+            { "floor": "13F", "kw": 10.57, "temp": 24.5, "humi": 48, "co2": 617, "timestamp": "2026-02-26T10:00:30Z" },
+            { "floor": "12F", "kw": 8.21, "temp": 25.2, "humi": 50, "co2": 595, "timestamp": "2026-02-26T10:00:30Z" },
+            { "floor": "11F", "kw": 5.68, "temp": 23.8, "humi": 47, "co2": 555, "timestamp": "2026-02-26T10:00:30Z" },
+            { "floor": "10F", "kw": 4.37, "temp": 24.0, "humi": 46, "co2": 525, "timestamp": "2026-02-26T10:00:30Z" },
+            { "floor": "09F", "kw": 7.89, "temp": 24.5, "humi": 49, "co2": 637, "timestamp": "2026-02-26T10:00:30Z" },
+            { "floor": "08F", "kw": 6.25, "temp": 23.9, "humi": 48, "co2": 610, "timestamp": "2026-02-26T10:00:30Z" },
+            { "floor": "07F", "kw": 5.49, "temp": 24.2, "humi": 50, "co2": 586, "timestamp": "2026-02-26T10:00:30Z" },
+            { "floor": "06F", "kw": 4.99, "temp": 24.1, "humi": 49, "co2": 576, "timestamp": "2026-02-26T10:00:30Z" },
+            { "floor": "05F", "kw": 5.35, "temp": 23.7, "humi": 47, "co2": 566, "timestamp": "2026-02-26T10:00:30Z" },
+            { "floor": "04F", "kw": 4.19, "temp": 24.0, "humi": 46, "co2": 546, "timestamp": "2026-02-26T10:00:30Z" },
+            { "floor": "03F", "kw": 3.99, "temp": 24.3, "humi": 48, "co2": 561, "timestamp": "2026-02-26T10:00:30Z" },
+            { "floor": "02F", "kw": 3.91, "temp": 24.4, "humi": 49, "co2": 571, "timestamp": "2026-02-26T10:00:30Z" },
+            { "floor": "01F", "kw": 4.51, "temp": 24.5, "humi": 51, "co2": 599, "timestamp": "2026-02-26T10:00:30Z" }
+        ]
+        },
+        {
+        "step": 8,
+        "timestamp": "2026-02-26T10:00:35Z",
+        "data": [
+            { "floor": "all", "kw": 92.93, "temp": 24.2, "humi": 48, "co2": 587, "timestamp": "2026-02-26T10:00:35Z" },
+            { "floor": "SR1F", "kw": 18.28, "temp": 22.2, "humi": 45, "co2": 416, "timestamp": "2026-02-26T10:00:35Z" },
+            { "floor": "13F", "kw": 10.53, "temp": 24.6, "humi": 48, "co2": 618, "timestamp": "2026-02-26T10:00:35Z" },
+            { "floor": "12F", "kw": 8.17, "temp": 25.3, "humi": 50, "co2": 596, "timestamp": "2026-02-26T10:00:35Z" },
+            { "floor": "11F", "kw": 5.64, "temp": 23.9, "humi": 47, "co2": 556, "timestamp": "2026-02-26T10:00:35Z" },
+            { "floor": "10F", "kw": 4.33, "temp": 24.1, "humi": 46, "co2": 526, "timestamp": "2026-02-26T10:00:35Z" },
+            { "floor": "09F", "kw": 7.85, "temp": 24.6, "humi": 49, "co2": 638, "timestamp": "2026-02-26T10:00:35Z" },
+            { "floor": "08F", "kw": 6.21, "temp": 24.0, "humi": 48, "co2": 611, "timestamp": "2026-02-26T10:00:35Z" },
+            { "floor": "07F", "kw": 5.45, "temp": 24.3, "humi": 50, "co2": 587, "timestamp": "2026-02-26T10:00:35Z" },
+            { "floor": "06F", "kw": 4.95, "temp": 24.2, "humi": 49, "co2": 577, "timestamp": "2026-02-26T10:00:35Z" },
+            { "floor": "05F", "kw": 5.31, "temp": 23.8, "humi": 47, "co2": 567, "timestamp": "2026-02-26T10:00:35Z" },
+            { "floor": "04F", "kw": 4.15, "temp": 24.1, "humi": 46, "co2": 547, "timestamp": "2026-02-26T10:00:35Z" },
+            { "floor": "03F", "kw": 3.95, "temp": 24.4, "humi": 48, "co2": 562, "timestamp": "2026-02-26T10:00:35Z" },
+            { "floor": "02F", "kw": 3.87, "temp": 24.5, "humi": 49, "co2": 572, "timestamp": "2026-02-26T10:00:35Z" },
+            { "floor": "01F", "kw": 4.24, "temp": 24.6, "humi": 51, "co2": 600, "timestamp": "2026-02-26T10:00:35Z" }
+        ]
+        },
+        {
+        "step": 9,
+        "timestamp": "2026-02-26T10:00:40Z",
+        "data": [
+            { "floor": "all", "kw": 93.18, "temp": 24.2, "humi": 48, "co2": 588, "timestamp": "2026-02-26T10:00:40Z" },
+            { "floor": "SR1F", "kw": 18.33, "temp": 22.2, "humi": 45, "co2": 417, "timestamp": "2026-02-26T10:00:40Z" },
+            { "floor": "13F", "kw": 10.57, "temp": 24.6, "humi": 48, "co2": 619, "timestamp": "2026-02-26T10:00:40Z" },
+            { "floor": "12F", "kw": 8.21, "temp": 25.3, "humi": 50, "co2": 597, "timestamp": "2026-02-26T10:00:40Z" },
+            { "floor": "11F", "kw": 5.68, "temp": 23.9, "humi": 47, "co2": 557, "timestamp": "2026-02-26T10:00:40Z" },
+            { "floor": "10F", "kw": 4.37, "temp": 24.1, "humi": 46, "co2": 527, "timestamp": "2026-02-26T10:00:40Z" },
+            { "floor": "09F", "kw": 7.89, "temp": 24.6, "humi": 49, "co2": 639, "timestamp": "2026-02-26T10:00:40Z" },
+            { "floor": "08F", "kw": 6.25, "temp": 24.0, "humi": 48, "co2": 612, "timestamp": "2026-02-26T10:00:40Z" },
+            { "floor": "07F", "kw": 5.49, "temp": 24.3, "humi": 50, "co2": 588, "timestamp": "2026-02-26T10:00:40Z" },
+            { "floor": "06F", "kw": 4.99, "temp": 24.2, "humi": 49, "co2": 578, "timestamp": "2026-02-26T10:00:40Z" },
+            { "floor": "05F", "kw": 5.35, "temp": 23.8, "humi": 47, "co2": 568, "timestamp": "2026-02-26T10:00:40Z" },
+            { "floor": "04F", "kw": 4.19, "temp": 24.1, "humi": 46, "co2": 548, "timestamp": "2026-02-26T10:00:40Z" },
+            { "floor": "03F", "kw": 3.99, "temp": 24.4, "humi": 48, "co2": 563, "timestamp": "2026-02-26T10:00:40Z" },
+            { "floor": "02F", "kw": 3.91, "temp": 24.5, "humi": 49, "co2": 573, "timestamp": "2026-02-26T10:00:40Z" },
+            { "floor": "01F", "kw": 4.38, "temp": 24.6, "humi": 51, "co2": 601, "timestamp": "2026-02-26T10:00:40Z" }
+        ]
+        },
+        {
+        "step": 10,
+        "timestamp": "2026-02-26T10:00:45Z",
+        "data": [
+            { "floor": "all", "kw": 92.93, "temp": 24.2, "humi": 48, "co2": 589, "timestamp": "2026-02-26T10:00:45Z" },
+            { "floor": "SR1F", "kw": 18.28, "temp": 22.2, "humi": 45, "co2": 418, "timestamp": "2026-02-26T10:00:45Z" },
+            { "floor": "13F", "kw": 10.53, "temp": 24.6, "humi": 48, "co2": 620, "timestamp": "2026-02-26T10:00:45Z" },
+            { "floor": "12F", "kw": 8.17, "temp": 25.3, "humi": 50, "co2": 598, "timestamp": "2026-02-26T10:00:45Z" },
+            { "floor": "11F", "kw": 5.64, "temp": 23.9, "humi": 47, "co2": 558, "timestamp": "2026-02-26T10:00:45Z" },
+            { "floor": "10F", "kw": 4.33, "temp": 24.1, "humi": 46, "co2": 528, "timestamp": "2026-02-26T10:00:45Z" },
+            { "floor": "09F", "kw": 7.85, "temp": 24.6, "humi": 49, "co2": 640, "timestamp": "2026-02-26T10:00:45Z" },
+            { "floor": "08F", "kw": 6.21, "temp": 24.0, "humi": 48, "co2": 613, "timestamp": "2026-02-26T10:00:45Z" },
+            { "floor": "07F", "kw": 5.45, "temp": 24.3, "humi": 50, "co2": 589, "timestamp": "2026-02-26T10:00:45Z" },
+            { "floor": "06F", "kw": 4.95, "temp": 24.2, "humi": 49, "co2": 579, "timestamp": "2026-02-26T10:00:45Z" },
+            { "floor": "05F", "kw": 5.31, "temp": 23.8, "humi": 47, "co2": 569, "timestamp": "2026-02-26T10:00:45Z" },
+            { "floor": "04F", "kw": 4.15, "temp": 24.1, "humi": 46, "co2": 549, "timestamp": "2026-02-26T10:00:45Z" },
+            { "floor": "03F", "kw": 3.95, "temp": 24.4, "humi": 48, "co2": 564, "timestamp": "2026-02-26T10:00:45Z" },
+            { "floor": "02F", "kw": 3.87, "temp": 24.5, "humi": 49, "co2": 574, "timestamp": "2026-02-26T10:00:45Z" },
+            { "floor": "01F", "kw": 4.24, "temp": 24.6, "humi": 51, "co2": 602, "timestamp": "2026-02-26T10:00:45Z" }
+        ]
+        },
+        {
+        "step": 11,
+        "timestamp": "2026-02-26T10:00:50Z",
+        "data": [
+            { "floor": "all", "kw": 93.18, "temp": 24.2, "humi": 48, "co2": 590, "timestamp": "2026-02-26T10:00:50Z" },
+            { "floor": "SR1F", "kw": 18.33, "temp": 22.2, "humi": 45, "co2": 419, "timestamp": "2026-02-26T10:00:50Z" },
+            { "floor": "13F", "kw": 10.57, "temp": 24.6, "humi": 48, "co2": 621, "timestamp": "2026-02-26T10:00:50Z" },
+            { "floor": "12F", "kw": 8.21, "temp": 25.3, "humi": 50, "co2": 599, "timestamp": "2026-02-26T10:00:50Z" },
+            { "floor": "11F", "kw": 5.68, "temp": 23.9, "humi": 47, "co2": 559, "timestamp": "2026-02-26T10:00:50Z" },
+            { "floor": "10F", "kw": 4.37, "temp": 24.1, "humi": 46, "co2": 529, "timestamp": "2026-02-26T10:00:50Z" },
+            { "floor": "09F", "kw": 7.89, "temp": 24.6, "humi": 49, "co2": 641, "timestamp": "2026-02-26T10:00:50Z" },
+            { "floor": "08F", "kw": 6.25, "temp": 24.0, "humi": 48, "co2": 614, "timestamp": "2026-02-26T10:00:50Z" },
+            { "floor": "07F", "kw": 5.49, "temp": 24.3, "humi": 50, "co2": 590, "timestamp": "2026-02-26T10:00:50Z" },
+            { "floor": "06F", "kw": 4.99, "temp": 24.2, "humi": 49, "co2": 580, "timestamp": "2026-02-26T10:00:50Z" },
+            { "floor": "05F", "kw": 5.35, "temp": 23.8, "humi": 47, "co2": 570, "timestamp": "2026-02-26T10:00:50Z" },
+            { "floor": "04F", "kw": 4.19, "temp": 24.1, "humi": 46, "co2": 550, "timestamp": "2026-02-26T10:00:50Z" },
+            { "floor": "03F", "kw": 3.99, "temp": 24.4, "humi": 48, "co2": 565, "timestamp": "2026-02-26T10:00:50Z" },
+            { "floor": "02F", "kw": 3.91, "temp": 24.5, "humi": 49, "co2": 575, "timestamp": "2026-02-26T10:00:50Z" },
+            { "floor": "01F", "kw": 4.38, "temp": 24.6, "humi": 51, "co2": 603, "timestamp": "2026-02-26T10:00:50Z" }
+        ]
+        },
+        {
+        "step": 12,
+        "timestamp": "2026-02-26T10:00:55Z",
+        "data": [
+            { "floor": "all", "kw": 93.30, "temp": 24.2, "humi": 48, "co2": 591, "timestamp": "2026-02-26T10:00:55Z" },
+            { "floor": "SR1F", "kw": 18.35, "temp": 22.2, "humi": 45, "co2": 420, "timestamp": "2026-02-26T10:00:55Z" },
+            { "floor": "13F", "kw": 10.60, "temp": 24.6, "humi": 48, "co2": 622, "timestamp": "2026-02-26T10:00:55Z" },
+            { "floor": "12F", "kw": 8.23, "temp": 25.3, "humi": 50, "co2": 600, "timestamp": "2026-02-26T10:00:55Z" },
+            { "floor": "11F", "kw": 5.70, "temp": 23.9, "humi": 47, "co2": 560, "timestamp": "2026-02-26T10:00:55Z" },
+            { "floor": "10F", "kw": 4.39, "temp": 24.1, "humi": 46, "co2": 530, "timestamp": "2026-02-26T10:00:55Z" },
+            { "floor": "09F", "kw": 7.91, "temp": 24.6, "humi": 49, "co2": 642, "timestamp": "2026-02-26T10:00:55Z" },
+            { "floor": "08F", "kw": 6.27, "temp": 24.0, "humi": 48, "co2": 615, "timestamp": "2026-02-26T10:00:55Z" },
+            { "floor": "07F", "kw": 5.51, "temp": 24.3, "humi": 50, "co2": 591, "timestamp": "2026-02-26T10:00:55Z" },
+            { "floor": "06F", "kw": 5.01, "temp": 24.2, "humi": 49, "co2": 581, "timestamp": "2026-02-26T10:00:55Z" },
+            { "floor": "05F", "kw": 5.37, "temp": 23.8, "humi": 47, "co2": 571, "timestamp": "2026-02-26T10:00:55Z" },
+            { "floor": "04F", "kw": 4.21, "temp": 24.1, "humi": 46, "co2": 551, "timestamp": "2026-02-26T10:00:55Z" },
+            { "floor": "03F", "kw": 4.01, "temp": 24.4, "humi": 48, "co2": 566, "timestamp": "2026-02-26T10:00:55Z" },
+            { "floor": "02F", "kw": 3.93, "temp": 24.5, "humi": 49, "co2": 576, "timestamp": "2026-02-26T10:00:55Z" },
+            { "floor": "01F", "kw": 4.41, "temp": 24.6, "humi": 51, "co2": 605, "timestamp": "2026-02-26T10:00:55Z" }
+        ]
+        }
+    ]
+}

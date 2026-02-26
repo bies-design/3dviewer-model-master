@@ -636,8 +636,17 @@ useEffect(() => {
     // const modelsToLoad = uploadedModels.filter(m => 
     //   m.r2FileName && !fragmentsRef.current?.list.has(m.r2FileName)
     // );
-    let candidates = uploadedModels.filter(m => 
-      m.r2FileName && !fragmentsRef.current?.list.has(m.r2FileName)
+    let candidates = uploadedModels.filter(m => {
+      const isBasicValid = m.r2FileName && !fragmentsRef.current?.list.has(m.r2FileName);
+
+      // 排除黑名單
+      const isExcluded = 
+      m.r2FileName?.includes('inner_window.ifc.frag') || 
+      m.r2FileName?.includes('2024.04.18____-1V2.ifc.frag');
+
+      return isBasicValid && !isExcluded;
+    }
+      
     );
 
     // if (modelsToLoad.length === 0) return;
@@ -650,8 +659,10 @@ useEffect(() => {
     });
 
     // 3. 切片：只取前 10 個
-    const LIMIT = 10;
-    const modelsToLoad = candidates.slice(0, LIMIT);
+    // const LIMIT = 10;
+    // const modelsToLoad = candidates.slice(0, LIMIT);
+
+    const modelsToLoad = candidates;
 
     console.log(`預計載入 ${candidates.length} 個模型，限制載入前 ${modelsToLoad.length} 個`);
 

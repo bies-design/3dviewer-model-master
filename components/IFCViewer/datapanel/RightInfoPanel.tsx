@@ -1,4 +1,4 @@
-import React ,{useState,useEffect,memo}from 'react';
+import React ,{useState,useEffect,memo,useMemo}from 'react';
 import { 
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import CameraPlayer from '@/components/camera/CameraPlayer';
+import { useEMS } from "@/contexts/EMSProvider";
 
 interface RightInfoPanelProps{
     floor: string;
@@ -54,6 +55,14 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
 
     const [selectedCamera, setSelectedCamera] = useState<FilteredCamera | null>(null);
     
+    const { currentData } = useEMS();
+
+    const realTimeFloorInfo = useMemo(()=>{
+        const floorData = currentData.find(d => d.floor === floor);
+        return floorData;
+    },currentData)
+
+
     useEffect(() => {
 
         console.log("子層獲取的樓層",floor);
@@ -140,7 +149,7 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
                     <Thermometer size={14} className="text-[#2BC3EC]" />
                     <span className="text-[14px] text-white/80">平均溫度</span>
                 </div>
-                <span className="text-3xl font-mono text-white font-bold mt-2">24.5<span className="text-sm ml-1 text-white/80">°C</span></span>
+                <span className="text-3xl font-mono text-white font-bold mt-2">{(realTimeFloorInfo.temp).toFixed(1)}<span className="text-sm ml-1 text-white/80">°C</span></span>
             </div>
             {/* 濕度 */}
             <div className=" flex-1 flex flex-col items-center justify-center relative">
@@ -148,7 +157,7 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
                     <Droplets size={14} className="text-[#2BC3EC]" />
                     <span className="text-[14px] text-white/80">相對濕度</span>
                 </div>
-                <span className="text-3xl font-mono text-white font-bold mt-2">58<span className="text-sm ml-1 text-white/80">%</span></span>
+                <span className="text-3xl font-mono text-white font-bold mt-2">{(realTimeFloorInfo.humi).toFixed(1)}<span className="text-sm ml-1 text-white/80">%</span></span>
             </div>
             {/* CO2 (空氣品質) */}
             <div className=" flex-1 flex flex-col items-center justify-center relative">
@@ -156,7 +165,7 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
                     <Wind size={14} className="text-[#2BC3EC]" />
                     <span className="text-[14px] text-white/80">CO2</span>
                 </div>
-                <span className="text-3xl font-mono text-green-400 font-bold mt-2">420<span className="text-sm ml-1 text-white/80">ppm</span></span>
+                <span className="text-3xl font-mono text-green-400 font-bold mt-2">{(realTimeFloorInfo.co2).toFixed(0)}<span className="text-sm ml-1 text-white/80">ppm</span></span>
             </div>
         </div>
 

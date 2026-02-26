@@ -1,12 +1,5 @@
 import React,{useMemo,useEffect,useState} from "react";
-
-interface FloorData {
-  floor: string;
-  kw: number | string;
-  temp: number | string;
-  humi: number | string;
-  co2: number | string;
-}
+import { useEMS } from "@/contexts/EMSProvider";
 
 interface KPIFloorTableProps {
   loadedModelIds: string[];
@@ -16,6 +9,7 @@ interface KPIFloorTableProps {
 
 const KPIFloorTable: React.FC<KPIFloorTableProps> = ({ loadedModelIds,darkMode = true }) => {
 
+  const { currentData } = useEMS();
   const [availableFloors, setAvailableFloors] = useState<string[]>([]);
   
   // --- 1. 樓層解析工具 ---
@@ -45,22 +39,26 @@ const KPIFloorTable: React.FC<KPIFloorTableProps> = ({ loadedModelIds,darkMode =
 
       setAvailableFloors(uniqueFloors);
   }, [loadedModelIds]);
-  
+  // 數據合併邏輯
+  const displayData = useMemo(() => {
+    const sortedFloors = [...availableFloors].sort((a, b) => 
+      b.localeCompare(a, undefined, { numeric: true })
+    );
+    return sortedFloors.map(floorName => {
+      // 在 Context 數據中尋找對應的樓層資料
+      const liveInfo = currentData.find(d => d.floor === floorName);
+
+      return {
+        floor: floorName,
+        // 如果找不到資料則給予預設值
+        kw: liveInfo?.kw ?? "--", 
+        temp: liveInfo?.temp ?? "--",
+        humi: liveInfo?.humi ?? "--",
+        co2: liveInfo?.co2 ?? "--",
+      };
+    });
+  },[availableFloors, currentData])
   // 1. 準備模擬或即時數據
-    const data = useMemo(() => {
-      // 將樓層列表排序 (從高樓層往低樓層排列比較符合直覺)
-      const sortedFloors = [...availableFloors].sort((a, b) => 
-        b.localeCompare(a, undefined, { numeric: true })
-      );
-  
-      return sortedFloors.map(floor => ({
-        floor: floor,
-        kw: (Math.random() * 10 + 2).toFixed(2), // 這裡換成您的即時 API 數據
-        temp: (Math.random() * 5 + 22).toFixed(1),
-        humi: Math.floor(Math.random() * 20 + 40),
-        co2: Math.floor(Math.random() * 500 + 300),
-      }));
-    }, [availableFloors]);
 
   return (
     <div className="flex flex-col w-full p-4 overflow-y-auto">
@@ -89,11 +87,11 @@ const KPIFloorTable: React.FC<KPIFloorTableProps> = ({ loadedModelIds,darkMode =
 
       {/* 資料列容器 */}
       <div className="flex flex-col gap-0.5 overflow-y-auto">
-        {data.map((item, index) => (
+        {displayData.map((item, index) => (
           <div 
             key={item.floor} 
             className={`grid grid-cols-5 items-center py-2 px-1 hover:bg-white/5 transition-colors ${
-              index !== data.length - 1 ? "border-b border-blue-500/10" : ""
+              index !== displayData.length - 1 ? "border-b border-blue-500/10" : ""
             }`}
           >
             {/* KW */}
