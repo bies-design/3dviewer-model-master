@@ -41,34 +41,41 @@ import CameraViewerPanel from "@/components/camera/CameraViewerPanel";
 import LinkedCameraPanel from "@/components/camera/LinkedCameraPanel";
 import { createMarkerElement } from "@/app/markerElements/CCTVMarkerDiv";
 import GlobalLoader from "@/components/loader/GlobalLoader";
-
+import { useEMS, hvacData } from "@/contexts/EMSProvider";
+import historyData from "../data/historyData.json"
 // --- 模擬圖表數據 ---
-  const powerData = [
-    { time: '10:00', val: 42 }, { time: '11:00', val: 29 }, { time: '12:00', val: 55 },
-    { time: '13:00', val: 48 }, { time: '14:00', val: 32 }, { time: '15:00', val: 50 },
-    { time: '16:00', val: 22 }, { time: '17:00', val: 18 }, { time: '18:00', val: 30 },
-    { time: '19:00', val: 58 },
-  ];
+  const powerData = historyData.historical_charts.powerData;
 
-  const tempData1 = [
-    { time: '10:00', val: 24 }, { time: '12:00', val: 26 }, { time: '14:00', val: 29 },
-    { time: '16:00', val: 25 }, { time: '18:00', val: 23 },
-  ];
+  const ambientTempData = historyData.historical_charts.tempData1_ambient;
 
-  const tempData2 = [
-    { time: '10:00', in: 50, out: 20 }, { time: '12:00', in: 55, out: 22 }, 
-    { time: '14:00', in: 65, out: 25 }, { time: '16:00', in: 58, out: 23 }, 
-    { time: '18:00', in: 52, out: 21 },
-  ];
-  
+  const waterTempData = historyData.historical_charts.tempData2_water;
+
 // --- 輔助函式：從 ModelID 解析樓層 ---
 const extractFloorFromModelId = (modelId: string): string | null => {
+  // try {
+  //   let tempId = modelId.replace('.ifc.frag', '');
+  //   if (tempId.endsWith('_')) tempId = tempId.slice(0, -1);
+  //   const parts = tempId.split('_');
+  //   return parts[parts.length - 1];
+  // } catch (e) {
+  //   return null;
+  // }
   try {
-    let tempId = modelId.replace('.ifc.frag', '');
-    if (tempId.endsWith('_')) tempId = tempId.slice(0, -1);
-    const parts = tempId.split('_');
-    return parts[parts.length - 1];
+    // 1. 取得純檔名：移除 "models/" 前綴與 ".ifc.frag" 副檔名
+    // 範例：models/1772094551333-13F-CurtainWall.ifc.frag -> 1772094551333-13F-CurtainWall
+    const fileName = modelId.split('/').pop()?.replace('.ifc.frag', '') || '';
+    
+    // 2. 使用 "-" 分割
+    // 分割後：["1772094551333", "13F", "CurtainWall"]
+    const parts = fileName.split('-');
+    
+    // 3. 樓層資訊固定在 Index 1
+    const floor = parts[1]; 
+    
+    // 檢查抓到的是否為有效的樓層格式 (例如包含 'F')
+    return floor || null;
   } catch (e) {
+    console.error("解析樓層失敗:", e);
     return null;
   }
 };
@@ -120,7 +127,7 @@ export default function IFCViewerContainer() {
     showProgressModal, setShowProgressModal, progress, setProgress, setToast,
     viewMode, setViewMode, selectedFloor, setSelectedFloor, selectedDevice, setSelectedDevice, selectedFragId, setSelectedFragId,
     selectedDeviceName, setSelectedDeviceName, isHVACOn, setIsHVACOn, isCCTVOn, setIsCCTVOn, isEACOn, setIsEACOn,
-    isGlobalLoading,setIsGlobalLoading,loadingMessage,setLoadingMessage
+    isGlobalLoading,setIsGlobalLoading,loadingMessage,setLoadingMessage, currentFoundDevices
   } = useAppContext();
 
   const workerRef = useRef<Worker | null>(null);
@@ -214,6 +221,8 @@ export default function IFCViewerContainer() {
   
   const { t } = useTranslation();
 
+  const {currentHvacData} = useEMS();
+  
   // ★★★ 新增：用 Ref 追蹤 setViewMode ★★★
   const viewModeRef = useRef(viewMode);
   const setViewModeRef = useRef(setViewMode);
@@ -633,24 +642,27 @@ useEffect(() => {
     console.log("🚀 啟動大檔案序列載入程序...");
     setHasAutoLoadedModels(true);
 
+    const targetKeywords = ['CAM', 'CurtainWall', 'Structure', 'wall'];
     // const modelsToLoad = uploadedModels.filter(m => 
     //   m.r2FileName && !fragmentsRef.current?.list.has(m.r2FileName)
     // );
     let candidates = uploadedModels.filter(m => {
-      const isBasicValid = m.r2FileName && !fragmentsRef.current?.list.has(m.r2FileName);
+        const fileName = m.r2FileName || "";
+        const isNotLoaded = !fragmentsRef.current?.list.has(fileName);
 
-      // 排除黑名單
-      const isExcluded = 
-      m.r2FileName?.includes('inner_window.ifc.frag') || 
-      m.r2FileName?.includes('2024.04.18____-1V2.ifc.frag');
+        // 邏輯：必須包含白名單中的任一關鍵字，且副檔名符合
+        const isTargetModel = targetKeywords.some(key => 
+            fileName.includes(`${key}.ifc.frag`)
+        );
 
-      return isBasicValid && !isExcluded;
-    }
-      
-    );
+        return isNotLoaded && isTargetModel;
+    });
 
     // if (modelsToLoad.length === 0) return;
-    if (candidates.length === 0) return;
+    if (candidates.length === 0) {
+      console.log("⚠️ 未找到匹配的 13F 指定模型");
+      return;
+    }
 
     candidates.sort((a, b) => {
         const aIsMain = a.r2FileName?.toLowerCase().includes('all') ? 1 : 0;
@@ -738,7 +750,9 @@ useEffect(() => {
     // }, 1000);
     console.log("✅ 所有大模型載入完成");
     setProgress(100);
-    
+    // 開啟陰影
+    handleToggleColorShadows();
+
     // 稍微延遲讓記憶體穩定後再聚焦
     setTimeout(() => {
         onFocus('isometric');
@@ -796,8 +810,8 @@ useEffect(() => {
       scene.three.background = null;
 
       // axes x y z軸線
-      // const axesHelper = new THREE.AxesHelper(500); // 參數 5 代表軸線長度
-      // world.scene.three.add(axesHelper);
+      const axesHelper = new THREE.AxesHelper(500); // 參數 5 代表軸線長度
+      world.scene.three.add(axesHelper);
 
       const hdriLoader = new RGBELoader();
       hdriLoader.load(
@@ -810,12 +824,11 @@ useEffect(() => {
 
       const renderer = new OBCF.PostproductionRenderer(components, viewerRef.current!);
       world.renderer = renderer;
-      // renderer.mode = isColorShadowsEnabled ? OBC.RendererMode.MANUAL : OBC.RendererMode.AUTO;
 
       const camera = new OBC.OrthoPerspectiveCamera(components);
       world.camera = camera;
       await camera.controls.setLookAt(100, 100, 100 , 0, 0, 0,false);
-      camera.updateAspect();
+      camera.updateAspect();  
       cameraRef.current = camera;
 
       const postproductionRenderer = world.renderer as OBCF.PostproductionRenderer;
@@ -1129,6 +1142,10 @@ useEffect(() => {
         const renderer = world.renderer as OBCF.PostproductionRenderer;
         if (renderer.mode === OBC.RendererMode.MANUAL) {
           renderer.needsUpdate = true;
+          // 重繪1次讓marker獲取位置資訊
+          setTimeout(() => {
+            renderer.needsUpdate = true;
+          }, 100);
         }
       };
 
@@ -1825,37 +1842,7 @@ useEffect(() => {
       }
 
       console.log(visibleMap);
-      const modelIdCount = Object.keys(visibleMap).length;
-      if(modelIdCount > 1 && globalBox3Ref.current && globalCenterRef.current){
-        console.log("偵測到使用者選擇全部樓層");
-        switch (mode) {
-          case 'top-down': // === 俯視模式 (像 2D 平面圖) ===
-            await camera.controls.setLookAt(
-              globalCenterRef.current.x ,globalCenterRef.current.y + 80,globalCenterRef.current.z + 100,
-              globalCenterRef.current.x ,globalCenterRef.current.y ,globalCenterRef.current.z,
-              true // 開啟過渡動畫
-            );
-            setIsGlobalLoading(false);
-            break;
-          // 125,-20,100,
-          //         0,0,0,
-          case 'isometric': // === 等角模式 (工程視角) ===
-            await camera.controls.setLookAt(
-            globalBox3Ref.current.min.x + 160, globalBox3Ref.current.min.y + 50, globalBox3Ref.current.min.z + 110,
-            globalBox3Ref.current.min.x - 40, globalBox3Ref.current.min.y + 10, globalBox3Ref.current.min.z -40,                    
-            true
-          );
-          setIsGlobalLoading(false);
-          break;
-
-          case 'tight-fit': // === 緊湊聚焦 (原版 fit 的改良) ===
-            // 使用底層的 fitToBox 並給予極小的 padding (預設 fit 會留很多白邊)
-            await camera.controls.fitToBox(globalBox3Ref.current, true);
-            setIsGlobalLoading(false);
-            break;
-        }
-      }else{
-        console.log("偵測到使用者選擇單樓層或單元素");
+      console.log("偵測到使用者選擇單樓層或單元素");
         await boxer.addFromModelIdMap(visibleMap);
 
         const box3 = boxer.get();
@@ -1892,8 +1879,8 @@ useEffect(() => {
           //         0,0,0,
           case 'isometric': // === 等角模式 (工程視角) ===
             await camera.controls.setLookAt(
-            120,-20,60,
-            0,-40,-40,                    
+            120,80,80,
+            0,0,20,                    
             true
           );
           setIsGlobalLoading(false);
@@ -1910,7 +1897,92 @@ useEffect(() => {
             setIsGlobalLoading(false);
             break;
         }
-      }
+      // const modelIdCount = Object.keys(visibleMap).length;
+      // if(modelIdCount > 1 && globalBox3Ref.current && globalCenterRef.current){
+      //   console.log("偵測到使用者選擇全部樓層");
+      //   switch (mode) {
+      //     case 'top-down': // === 俯視模式 (像 2D 平面圖) ===
+      //       await camera.controls.setLookAt(
+      //         globalCenterRef.current.x ,globalCenterRef.current.y + 80,globalCenterRef.current.z + 100,
+      //         globalCenterRef.current.x ,globalCenterRef.current.y ,globalCenterRef.current.z,
+      //         true // 開啟過渡動畫
+      //       );
+      //       setIsGlobalLoading(false);
+      //       break;
+      //     // 125,-20,100,
+      //     //         0,0,0,
+      //     case 'isometric': // === 等角模式 (工程視角) ===
+      //       await camera.controls.setLookAt(
+      //       globalBox3Ref.current.min.x + 160, globalBox3Ref.current.min.y + 50, globalBox3Ref.current.min.z + 110,
+      //       globalBox3Ref.current.min.x - 40, globalBox3Ref.current.min.y + 10, globalBox3Ref.current.min.z -40,                    
+      //       true
+      //     );
+      //     setIsGlobalLoading(false);
+      //     break;
+
+      //     case 'tight-fit': // === 緊湊聚焦 (原版 fit 的改良) ===
+      //       // 使用底層的 fitToBox 並給予極小的 padding (預設 fit 會留很多白邊)
+      //       await camera.controls.fitToBox(globalBox3Ref.current, true);
+      //       setIsGlobalLoading(false);
+      //       break;
+      //   }
+      // }else{
+      //   console.log("偵測到使用者選擇單樓層或單元素");
+      //   await boxer.addFromModelIdMap(visibleMap);
+
+      //   const box3 = boxer.get();
+
+
+      //   // (防呆) 如果場景完全是空的，box3 會是空的，直接返回避免報錯
+      //   if (box3.isEmpty()) {
+      //     console.warn("場景中沒有任何模型可供聚焦");
+      //     setIsGlobalLoading(false);
+      //     return;
+      //   }
+      //   // 3. 計算選取物件的精確包圍盒 (Bounding Box) 與中心點 (Center)
+      //   // 這是比 camera.fit() 更精準的關鍵，我們手動算出幾何中心
+      //   const center = new THREE.Vector3();
+      //   box3.getCenter(center);
+        
+      //   const size = new THREE.Vector3();
+      //   box3.getSize(size);
+
+      //   console.log("Center",center);
+      //   console.log("Box3",box3);
+
+      //   // 4. 根據模式執行不同的相機操作
+      //   switch (mode) {
+      //     case 'top-down': // === 俯視模式 (像 2D 平面圖) ===
+      //       await camera.controls.setLookAt(
+      //         center.x,center.y + 50,center.z + 80,
+      //         center.x,center.y,center.z,
+      //         true // 開啟過渡動畫
+      //       );
+      //       setIsGlobalLoading(false);
+      //       break;
+      //     // 125,-20,100,
+      //     //         0,0,0,
+      //     case 'isometric': // === 等角模式 (工程視角) ===
+      //       await camera.controls.setLookAt(
+      //       120,-20,60,
+      //       0,-40,-40,                    
+      //       true
+      //     );
+      //     setIsGlobalLoading(false);
+      //     break;
+
+      //     case 'tight-fit': // === 緊湊聚焦 (原版 fit 的改良) ===
+      //       // 使用底層的 fitToBox 並給予極小的 padding (預設 fit 會留很多白邊)
+      //       await camera.controls.fitToBox(box3, true, {
+      //         paddingLeft: 0.1, 
+      //         paddingRight: 0.1, 
+      //         paddingTop: 0.1, 
+      //         paddingBottom: 0.1
+      //       });
+      //       setIsGlobalLoading(false);
+      //       break;
+      //   }
+      // }
       
   },[worldRef, boxerRef, highlighterRef]);
   
@@ -2569,99 +2641,142 @@ const handleIssueForms = async() => {
   }
 }
 
-const outlineAllCamera = async() => {
-  if (!components || !fragmentsRef.current || !selectedFloor) return;
+// 從後端獲得camera
+// const outlineAllCamera = async() => {
+//   if (!components || !fragmentsRef.current || !selectedFloor) return;
 
-  try {
-    const response = await fetch("/api/cameras");
-    let latestCameras = []; 
+//   try {
+//     const response = await fetch("/api/cameras");
+//     let latestCameras = []; 
 
-    if (response.ok) {
-        const data = await response.json();
-        latestCameras = data;
-    }
+//     if (response.ok) {
+//         const data = await response.json();
+//         latestCameras = data;
+//     }
 
-    const validCameras = latestCameras.filter((cam: any) => cam.elementName && cam.elementName.trim() !== "");
+//     const validCameras = latestCameras.filter((cam: any) => cam.elementName && cam.elementName.trim() !== "");
 
-    if (validCameras.length === 0) {
-      setToast({ message: `資料庫中未有攝影機 ${selectedFloor}`, type: "warning" });
-      return;
-    }
-
-    // 只選出該樓層的camera
-    const cameraNames = validCameras
-    .filter((cam: any) => {
-      const camFloor = cam.elementName.split('-')[0];
-      return camFloor === selectedFloor;
-    })
-    .map((cam:any) => cam.elementName);
-
-    if(cameraNames.length === 0){
-      setToast({ message: `${selectedFloor}未有監視器資訊`, type: "warning" });
-      setIsCCTVOn(false);
-      return;
-    }
-    console.log("目前有的camera",cameraNames);
-
-    const response2 = await fetch('/api/elements', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        // 1. 將 operator 改為 "in"
-        // 2. 將 value 設定為你的陣列變數
-        queries: [
-          { 
-            id: 0, 
-            attribute: "Name", 
-            operator: "in", 
-            value: cameraNames, 
-            logic: "AND" 
-          }
-        ],
-        modelIds: Array.from(fragmentsRef.current.list.keys()),
-      }),
-    });
+//     if (validCameras.length === 0) {
+//       setToast({ message: `資料庫中未有攝影機 ${selectedFloor}`, type: "warning" });
+//       return;
+//     }
+//     // 只選出該樓層的camera
+//     const cameraNames = validCameras
+//     .filter((cam: any) => {
+//       const camFloor = cam.elementName.split('-')[0];
+//       return camFloor === selectedFloor;
+//     })
+//     .map((cam:any) => cam.elementName);
     
-    if (!response.ok) throw new Error('Search request failed');
+//     if(cameraNames.length === 0){
+//       setToast({ message: `${selectedFloor}未有監視器資訊`, type: "warning" });
+//       setIsCCTVOn(false);
+//       return;
+//     }
+//     console.log("目前有的camera",cameraNames);
 
-    const foundElements = await response2.json();
+//     const response2 = await fetch('/api/elements', {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({
+//         // 1. 將 operator 改為 "in"
+//         // 2. 將 value 設定為你的陣列變數
+//         queries: [
+//           { 
+//             id: 0, 
+//             attribute: "Name", 
+//             operator: "in", 
+//             value: cameraNames.map((name:string) => name.replace(/^.+?-/,'')), 
+//             logic: "AND" 
+//           }
+//         ],
+//         modelIds: Array.from(fragmentsRef.current.list.keys()),
+//       }),
+//     });
+    
+//     if (!response.ok) throw new Error('Search request failed');
 
-    console.log("抓取到的元素",foundElements);
+//     const foundElements = await response2.json();
 
-    if (foundElements.length > 0) {
+//     console.log("抓取到的元素",foundElements);
 
-        markerRef.current?.dispose();
-        outlinerRef.current?.clean();
+//     if (foundElements.length > 0) {
 
-        for (const element of foundElements) {
-          const { modelId, attributes } = element;
-          const expressID = attributes._localId.value;
-          const elementName = attributes.Name.value;
+//         markerRef.current?.dispose();
+//         outlinerRef.current?.clean();
 
-          const singleSelection: OBC.ModelIdMap = { [modelId]: new Set([expressID]) };
-          const point = await boxerRef.current?.getCenter(singleSelection);
+//         for (const element of foundElements) {
+//           const { modelId, attributes } = element;
+//           const expressID = attributes._localId.value;
+//           const elementName = attributes.Name.value;
 
-          if (worldRef.current && point) {
-            // 建立專屬於這台相機的 Label
-            const markerLabel = createMarkerElement(elementName, {
-              color: "#2BC3EC",
-              onClick: (name) => {
-                if (name) showCCTVDisplay(name);
-              }
-            });
-            // 在場景中建立 Marker
-            markerRef.current?.create(worldRef.current, markerLabel, point);
-          }
-          console.log("正在為以下相機加上輪廓：", singleSelection);
-          await outlinerRef.current?.addItems(singleSelection);
-        }
-        console.log("所有監視器標記完成");
-        
-      }
-  }catch (error) {
-      console.error("Failed to fetch cameras:", error);
+//           const singleSelection: OBC.ModelIdMap = { [modelId]: new Set([expressID]) };
+//           const point = await boxerRef.current?.getCenter(singleSelection);
+
+//           if (worldRef.current && point) {
+//             // 建立專屬於這台相機的 Label
+//             const markerLabel = createMarkerElement(elementName, {
+//               color: "#2BC3EC",
+//               onClick: (name) => {
+//                 if (name) showCCTVDisplay(name);
+//               }
+//             });
+//             // 在場景中建立 Marker
+//             markerRef.current?.create(worldRef.current, markerLabel, point);
+//           }
+//           console.log("正在為以下相機加上輪廓：", singleSelection);
+//           await outlinerRef.current?.addItems(singleSelection);
+//         }
+//         console.log("所有監視器標記完成");
+
+//         const renderer = worldRef.current.renderer as OBCF.PostproductionRenderer;
+//         renderer.needsUpdate = true;
+//       }
+//   }catch (error) {
+//       console.error("Failed to fetch cameras:", error);
+//   }
+// };
+
+//從appcontext中的設備清單獲得資料 
+const outlineAllCamera = async() =>{
+  if (!components || !fragmentsRef.current || !selectedFloor) return;
+  const cams = currentFoundDevices.filter(e => e.floor === selectedFloor && e.name.includes("CAM"));
+  console.log("攝影機為",cams, selectedFloor);
+  if(cams.length === 0){
+    setToast({ message: `資料庫中未有攝影機 ${selectedFloor}`, type: "warning" });
+    return;
   }
-};
+  console.log("目前該樓層有的cctv為",cams);
+
+  markerRef.current?.dispose();
+  outlinerRef.current?.clean();
+
+  for(const e of cams){
+    const { fragmentId, expressID, name } = e;
+    const singleSelection: OBC.ModelIdMap = { [fragmentId]: new Set([expressID]) };
+    const point = await boxerRef.current?.getCenter(singleSelection);
+
+    if(point){
+      point.y += 0.2;//marker向上移動10px
+    }
+    if (worldRef.current && point) {
+      // 建立專屬於這台相機的 Label
+      const markerLabel = createMarkerElement(name, {
+        color: "#2BC3EC",
+        onClick: (name) => {
+          if (name) showCCTVDisplay(name);
+        }
+      });
+      // 在場景中建立 Marker
+      markerRef.current?.create(worldRef.current, markerLabel, point);
+      const renderer = worldRef.current.renderer as OBCF.PostproductionRenderer;
+      renderer.needsUpdate = true;
+    }
+    console.log("正在為以下相機加上輪廓：", singleSelection);
+    await outlinerRef.current?.addItems(singleSelection);
+    console.log("所有監視器標記完成");
+  }
+}
 
 const handleLocateElementByName = useCallback(async (elementName: string) => {
     if (!components || !fragmentsRef.current) return;
@@ -2712,9 +2827,6 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
         if(worldRef.current && point) markerRef.current?.create(worldRef.current,markerLabel,point);
         
         console.log("已經加outline在",selection);
-
-
-
 
         // const highlighter = components.get(OBCF.Highlighter);
         // await highlighter.clear();
@@ -2789,11 +2901,11 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                     <div className="w-2/9 h-full flex flex-col gap-2">
                       <div className="hud-panel relative 2xl:p-4  flex flex-col items-center justify-center w-full h-1/2">
                         <p className="text-md 2xl:text-xl text-white font-semibold absolute top-2 left-3">效率</p>
-                        <p className="text-xl 2xl:text-2xl text-white font-mono mt-[30%]">13.75 <span className="text-sm text-gray-300">kW/RT</span></p>
+                        <p className="text-xl 2xl:text-2xl text-white font-mono mt-[30%]">{currentHvacData?.device_info.efficiency.value} <span className="text-sm text-gray-300">kW/RT</span></p>
                       </div>
                       <div className="hud-panel relative 2xl:p-4  flex flex-col items-center justify-center w-full h-1/2">
                         <p className="text-md 2xl:text-xl text-white font-semibold absolute top-2 left-3">流量</p>
-                        <p className="text-xl 2xl:text-2xl text-white font-mono mt-4">15 <span className="text-sm text-gray-300">CMH</span></p>
+                        <p className="text-xl 2xl:text-2xl text-white font-mono mt-4">{currentHvacData?.device_info.flow_rate.value} <span className="text-sm text-gray-300">CMH</span></p>
                       </div>
                     </div>
                     {/* 碳排 */}
@@ -2805,7 +2917,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                         <span className=" text-sm ml-1 text-gray-300">(KgCo2)</span>
                       </div>
                       <div className="flex flex-col items-center justify-center gap-2 h-8/10">
-                        <p className="text-3xl max-[1281px]:text-xl text-white font-mono font-bold">12,747</p>
+                        <p className="text-3xl max-[1281px]:text-xl text-white font-mono font-bold">{currentHvacData?.device_info.carbon_emissions.monthly_total}</p>
                         <p className="text-gray-300 text-sm">本月累積</p>
                       </div>
                     </div>
@@ -2815,27 +2927,27 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                         其他用電</div>
                       <div className="flex-1 grid grid-cols-3 gap-y-4 max-[1281px]:gap-y-2 gap-x-2 content-center">
                         <div className="flex flex-col items-center justify-center">
-                          <p className="text-xl text-white font-mono">0.5</p>
+                          <p className="text-xl text-white font-mono">{currentHvacData?.electricity_metrics.power_factor}</p>
                           <p className="text-xs text-gray-300">功率因數</p>
                         </div>
                         <div className="flex flex-col items-center justify-center">
-                          <p className="text-xl text-white font-mono">20 <span className="text-xs">kW</span></p>
+                          <p className="text-xl text-white font-mono">{currentHvacData?.electricity_metrics.active_power_kw} <span className="text-xs">kW</span></p>
                           <p className="text-xs text-gray-300">有功功率</p>
                         </div>
                         <div className="flex flex-col items-center justify-center">
-                          <p className="text-xl text-white font-mono">1.1 <span className="text-xs">kVAR</span></p>
+                          <p className="text-xl text-white font-mono">{currentHvacData?.electricity_metrics.reactive_power_kvar}<span className="text-xs">kVAR</span></p>
                           <p className="text-xs text-gray-300">無功功率</p>
                         </div>
                         <div className="flex flex-col items-center justify-center">
-                          <p className="text-xl text-white font-mono">1.3 <span className="text-xs">kVA</span></p>
+                          <p className="text-xl text-white font-mono">{currentHvacData?.electricity_metrics.apparent_power_kva} <span className="text-xs">kVA</span></p>
                           <p className="text-xs text-gray-300">視在功率</p>
                         </div>
                         <div className="flex flex-col items-center justify-center">
-                          <p className="text-xl text-white font-mono">15 <span className="text-xs">Hz</span></p>
+                          <p className="text-xl text-white font-mono">{currentHvacData?.electricity_metrics.frequency_hz}<span className="text-xs">Hz</span></p>
                           <p className="text-xs text-gray-300">頻率</p>
                         </div>
                         <div className="flex flex-col items-center justify-center">
-                          <p className="text-xl text-white font-mono">12820 <span className="text-xs">kWh</span></p>
+                          <p className="text-xl text-white font-mono">{currentHvacData?.electricity_metrics.total_active_energy_kwh}<span className="text-xs">kWh</span></p>
                           <p className="text-xs text-gray-300">總有功功率</p>
                         </div>
                       </div>
@@ -2849,26 +2961,26 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   <div className="hud-panel p-4 flex flex-col w-full h-full">
                     <div className="text-white text-medium 2xl:text-xl font-medium border-b border-gray-600/50">環境溫度</div>
                     <div className="flex-1 content-center">
-                      <div className="text-2xl 2xl:text-4xl text-white text-center">23<span className="text-gray-300 text-[20px]">°C</span></div>
+                      <div className="text-2xl 2xl:text-4xl text-white text-center">{currentHvacData?.operating_status.ambient_temp.current}<span className="text-gray-300 text-[20px]">°C</span></div>
                     </div>
                     
                   </div>
                   <div className="hud-panel p-4  w-full h-full">
                     <div className="text-white text-medium 2xl:text-xl font-medium mb-2 border-b border-gray-600/50">線電壓</div>
-                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300 mb-1"><span>線電壓1:</span> <span className="self-end">300 V</span></div>
-                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300 mb-1"><span>線電壓2:</span> <span className="self-end">310 V</span></div>
-                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300"><span>線電壓3:</span> <span className="self-end">320 V</span></div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300 mb-1"><span>線電壓1:</span> <span className="self-end">{currentHvacData?.electricity_metrics.line_voltage.v1} V</span></div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300 mb-1"><span>線電壓2:</span> <span className="self-end">{currentHvacData?.electricity_metrics.line_voltage.v2} V</span></div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300"><span>線電壓3:</span> <span className="self-end">{currentHvacData?.electricity_metrics.line_voltage.v3} V</span></div>
                   </div>
                   <div className="hud-panel p-4  w-full h-full">
                     <div className="text-white text-medium 2xl:text-xl font-medium mb-2 border-b border-gray-600/50">電流</div>
-                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300 mb-1"><span>電流1</span> <span className="bg-orange-500 self-end text-black px-1 rounded">25 A</span></div>
-                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300 mb-1"><span>電流2</span> <span className="self-end">42.0 A</span></div>
-                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300"><span>電流3</span> <span className="self-end">51.9 A</span></div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300 mb-1"><span>電流1</span> <span className="bg-orange-500 self-end text-black px-1 rounded">{currentHvacData?.electricity_metrics.current.a1} A</span></div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300 mb-1"><span>電流2</span> <span className="self-end">{currentHvacData?.electricity_metrics.current.a2} A</span></div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300"><span>電流3</span> <span className="self-end">{currentHvacData?.electricity_metrics.current.a3} A</span></div>
                   </div>
                   <div className="hud-panel p-4  w-full h-full">
                     <div className="text-white text-medium 2xl:text-xl font-medium mb-2 border-b border-gray-600/50">溫度</div>
-                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300 mb-1"><span>出水溫度</span> <span className="self-end">23.6°C</span></div>
-                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300"><span>入水溫度</span> <span className="self-end">54.6°C</span></div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300 mb-1"><span>出水溫度</span> <span className="self-end">{currentHvacData?.operating_status.water_temp.outlet}°C</span></div>
+                    <div className="flex max-[1281px]:flex-col items-start  2xl:justify-between text-xs text-gray-300"><span>入水溫度</span> <span className="self-end">{currentHvacData?.operating_status.water_temp.inlet}°C</span></div>
                   </div>
                 </div>
               </div>
@@ -2883,7 +2995,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                       <div className=" relative w-16 h-full border-2 border-green-500 rounded-lg p-1 flex flex-col-reverse items-center gap-1 shadow-[0_0_10px_rgba(34,197,94,0.5)]">
                           {/* 電池頭 */}
                           <div className="absolute -top-3 w-8 h-2 bg-green-500 rounded-t-sm"></div>
-                          <span className="absolute -top-10 text-green-400 font-bold text-xl">C4</span>
+                          <span className="absolute -top-10 text-green-400 font-bold text-xl">{currentHvacData?.operating_status.energy_index}</span>
                           {/* 電量條 */}
                           <div className="w-full h-75/100 bg-gradient-to-t from-green-600 to-green-400 rounded-sm animate-pulse"></div>
                       </div>
@@ -2893,7 +3005,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                   <div className="hud-panel w-full h-full flex flex-col items-center relative overflow-hidden p-4">
                     <p className="w-full text-left text-white font-semibold mb-2">運行狀況</p>
                     {/* 液態狀態球 */}
-                    <LiquidFillGauge percent={50} size={200}/>
+                    <LiquidFillGauge percent={currentHvacData?.operating_status.operation_percent!} size={200}/>
                   </div>
                 </div>
                 {/* 右二：耗電量 (Bar Chart) */}
@@ -2935,7 +3047,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                         {viewMode === 'device' && 
                           <ResponsiveContainer width="100%" height="100%">
                               <AreaChart 
-                                data={tempData1}
+                                data={ambientTempData}
                                 margin={{ top: 10, right: 20, left: -20, bottom: 0 }} // 將 left 設為負值
                               >
                                   <defs>
@@ -2971,7 +3083,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                         {viewMode === 'device' && 
                           <ResponsiveContainer width="100%" height="100%">
                               <AreaChart 
-                                data={tempData2}
+                                data={waterTempData}
                                 margin={{ top: 10, right: 20, left: -20, bottom: 0 }} // 將 left 設為負值
                                 >
                                 

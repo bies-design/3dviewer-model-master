@@ -14,27 +14,43 @@ const KPIFloorTable: React.FC<KPIFloorTableProps> = ({ loadedModelIds,darkMode =
   
   // --- 1. 樓層解析工具 ---
   const extractFloorFromModelId = (modelId: string): string | null => {
+      // try {
+      // let tempId = modelId.replace('.ifc.frag', '');
+      // if (tempId.endsWith('_')) tempId = tempId.slice(0, -1);
+      // const parts = tempId.split('_');
+      // return parts[parts.length - 1];
+      // } catch (e) {
+      // return null;
+      // }
       try {
-      let tempId = modelId.replace('.ifc.frag', '');
-      if (tempId.endsWith('_')) tempId = tempId.slice(0, -1);
-      const parts = tempId.split('_');
-      return parts[parts.length - 1];
+        // 去除路徑前綴 (models/) 與 副檔名 (.ifc.frag)
+        // 範例：models/1772094551333-13F-CurtainWall.ifc.frag 
+        // -> 1772094551333-13F-CurtainWall
+        const cleanId = modelId.split('/').pop()?.replace('.ifc.frag', '') || '';
+        
+        // 使用 '-' 進行分割
+        // 分割後會得到：["1772094551333", "13F", "CurtainWall"]
+        const parts = cleanId.split('-');
+        
+        // 樓層資訊固定在 index 1 的位置
+        const floor = parts[1]; 
+        
+        return floor || null;
       } catch (e) {
-      return null;
+          console.error("Parse floor error:", e);
+          return null;
       }
   };
   // --- 2. 初始化樓層列表 ---
   useEffect(() => {
       const floors = loadedModelIds
       .map(extractFloorFromModelId)
-      .filter((f): f is string => f !== null && f !== "");
+      .filter((f): f is string => f !== null && f !== "" && f != 'all');
 
       const uniqueFloors = Array.from(new Set(floors));
 
       uniqueFloors.sort((a, b) => {
-      if (a === 'all') return -1;
-      if (b === 'all') return 1;
-      return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
       });
 
       setAvailableFloors(uniqueFloors);

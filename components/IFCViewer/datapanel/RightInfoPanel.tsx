@@ -49,7 +49,7 @@ const cameraList = [
 
 
 const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
-    const {setToast} = useAppContext();
+    const { setToast, currentFoundDevices } = useAppContext();
 
     const [floorCameras, setFloorCameras] = useState<FilteredCamera[]>([]);
 
@@ -62,79 +62,135 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
         return floorData;
     },currentData)
 
+    // 只在值改變或是有新設備加入時才觸發
+    const cams = useMemo(() => {
+        if (!currentFoundDevices) return [];
+        return currentFoundDevices.filter(e => e.floor === floor && e.name.includes("CAM"));
+    }, [floor, currentFoundDevices]);
 
     useEffect(() => {
 
         console.log("子層獲取的樓層",floor);
-        const controller = new AbortController();
-        const signal = controller.signal;
-        // 1. 定義在 useEffect 內部，確保它總是能存取到這次 render 的 floor
-        const getFloorCameras = async () => {
-            try {
-                const response = await fetch("/api/cameras",{signal});
-                let latestCameras = [];
 
+        // 如果上層的總表還是空的，不要亂跳警告
+        if (currentFoundDevices.length === 0) return;
+
+        console.warn("第二個這裡",cams);
+
+        const getCameras = async() =>{
+            try{
+                const response = await fetch("/api/cameras");
+                let latestCameras = [];
                 if (response.ok) {
                     const data = await response.json();
                     latestCameras = data;
                 }
-                
-                if(signal.aborted) return;
-                // 防呆：確保 cam.elementName 存在
                 const validCameras = latestCameras.filter((cam: any) => cam.elementName && cam.elementName.trim() !== "");
-
                 const matchedCameras = validCameras
-                    .filter((cam: any) => cam.elementName.includes(floor))
-                    .map((cam: any) => ({
-                        id: cam.id,
-                        hlsUrl: cam.hlsUrl || "",
-                        webrtcUrl: cam.webrtcUrl || "",
-                        title: cam.title,
-                        elementName: cam.elementName,
-                        isAlarm: cam.isAlarm || false,
-                    }));
+                .filter((dbCam:any) => {
+                    return  cams.some((c:any) =>
+                        dbCam.elementName === c.name
+                    );
+                })
+                .map((cam:any) => ({
+                    id: cam.id,
+                    hlsUrl: cam.hlsUrl || "",
+                    webrtcUrl: cam.webrtcUrl || "",
+                    title: cam.title,
+                    elementName: cam.elementName,
+                    isAlarm: cam.isAlarm || false,
+                }));
 
-                if (matchedCameras.length === 0) {
-                    // 記得這裡也要處理空狀態，可能需要清空之前的資料
-                    setFloorCameras([]); 
-                    setSelectedCamera(null);
-                    setToast({ message: "該樓層未有監視器", type: "warning" }); // 建議不要在 useEffect 頻繁跳 toast，會很煩
-                    console.log(`樓層 ${floor} 無匹配攝影機`);
-                    return;
-                }
-
-                console.log(`樓層 ${floor} 配對到的攝影機:`, matchedCameras);
-                setFloorCameras(matchedCameras);
+                console.log("最終配對到的 API 攝影機:", matchedCameras);
 
                 if (matchedCameras.length > 0) {
-                    setSelectedCamera(matchedCameras[0]);
+                    setFloorCameras(matchedCameras);
+                    setSelectedCamera(matchedCameras[0]); //預設選中第一台
+                } else {
+                    setFloorCameras([]);
+                    console.log(`在資料庫中找不到對應 ${floor} 樓層的 CAM 攝影機設定`);
                 }
-
-            } catch (error: any) {
-                if(error.name === 'AbortError') {
-                    console.log('上一筆請求已取消 (React Strict Mode Cleanup)');
-                    return;
-                }
-                console.error("Failed to fetch cameras:", error);
-                setToast({ message: "獲取攝影機列表失敗", type: "error" });
+            }catch(e){
+                console.error("獲取攝影機 API 失敗:", e);
             }
         };
 
-        // 2. 執行邏輯
-        if (floor) {
-            console.log("偵測到樓層變更，開始獲取攝影機:", floor); // Debug 用
-            getFloorCameras();
-        } else {
-            // 如果 floor 為空，可能需要清空列表
+        if(cams.length > 0){
+            getCameras();
+        }else{
             setFloorCameras([]);
-            setSelectedCamera(null);
         }
+        // setFloorCameras(cams);
+        // // 可以取消上一筆請求
+        // const controller = new AbortController();
+        // const signal = controller.signal;
+        // // 1. 定義在 useEffect 內部，確保它總是能存取到這次 render 的 floor
+        // const getFloorCameras = async () => {
+        //     try {
+        //         const response = await fetch("/api/cameras",{signal});
+        //         let latestCameras = [];
 
-        return()=>{
-            controller.abort();
-        };
+        //         if (response.ok) {
+        //             const data = await response.json();
+        //             latestCameras = data;
+        //         }
+                
+        //         if(signal.aborted) return;
+        //         // 只拿elementName 不為空的
+        //         const validCameras = latestCameras.filter((cam: any) => cam.elementName && cam.elementName.trim() !== "");
+
+        //         const matchedCameras = validCameras
+        //             .filter((cam: any) => cam.elementName.includes(floor))
+        //             .map((cam: any) => ({
+        //                 id: cam.id,
+        //                 hlsUrl: cam.hlsUrl || "",
+        //                 webrtcUrl: cam.webrtcUrl || "",
+        //                 title: cam.title,
+        //                 elementName: cam.elementName,//去掉前面樓層
+        //                 isAlarm: cam.isAlarm || false,
+        //             }));
+
+        //         if (matchedCameras.length === 0) {
+        //             // 記得這裡也要處理空狀態，可能需要清空之前的資料
+        //             setFloorCameras([]); 
+        //             setSelectedCamera(null);
+        //             setToast({ message: "該樓層未有監視器", type: "warning" }); // 建議不要在 useEffect 頻繁跳 toast，會很煩
+        //             console.log(`樓層 ${floor} 無匹配攝影機`);
+        //             return;
+        //         }
+
+        //         console.log(`樓層 ${floor} 配對到的攝影機:`, matchedCameras);
+        //         setFloorCameras(matchedCameras);
+
+        //         if (matchedCameras.length > 0) {
+        //             setSelectedCamera(matchedCameras[0]);
+        //         }
+
+        //     } catch (error: any) {
+        //         if(error.name === 'AbortError') {
+        //             console.log('上一筆請求已取消 (React Strict Mode Cleanup)');
+        //             return;
+        //         }
+        //         console.error("Failed to fetch cameras:", error);
+        //         setToast({ message: "獲取攝影機列表失敗", type: "error" });
+        //     }
+        // };
+
+        // // 2. 執行邏輯
+        // if (floor) {
+        //     console.log("偵測到樓層變更，開始獲取攝影機:", floor); // Debug 用
+        //     getFloorCameras();
+        // } else {
+        //     // 如果 floor 為空，可能需要清空列表
+        //     setFloorCameras([]);
+        //     setSelectedCamera(null);
+        // }
+
+        // return()=>{
+        //     controller.abort();
+        // };
         
-    }, [floor]); 
+    }, [floor, currentFoundDevices.length, cams]); 
 
     
 

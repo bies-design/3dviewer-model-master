@@ -1,0 +1,376 @@
+{
+    "chiller_data_sequence": [
+        {
+        "step": 1,
+        "timestamp": "2026-02-26T15:00:00Z",
+        "data": {
+            "id": "N02F-2N-76",
+            "name": "N02F-2N-76",
+            "floor": "02F",
+            "device_info": {
+            "efficiency": { "value": 0.72, "unit": "kW/RT" },
+            "flow_rate": { "value": 15, "unit": "CMH" },
+            "carbon_emissions": { "monthly_total": 12747, "unit": "KgCo2" }
+            },
+            "electricity_metrics": {
+            "power_factor": 0.92,
+            "active_power_kw": 20.15,
+            "reactive_power_kvar": 8.52,
+            "apparent_power_kva": 21.88,
+            "frequency_hz": 60,
+            "total_active_energy_kwh": 12820.00,
+            "line_voltage": { "v1": 381, "v2": 379, "v3": 380, "unit": "V" },
+            "current": { "a1": 33.2, "a2": 32.8, "a3": 33.0, "unit": "A", "alert_phase": "none" }
+            },
+            "operating_status": {
+            "ambient_temp": { "current": 24.1, "unit": "°C" },
+            "water_temp": { "outlet": 7.1, "inlet": 12.2, "unit": "°C" },
+            "status": "normal",
+            "energy_index": "A1",
+            "operation_percent": 49
+            }
+        }
+        },
+        {
+        "step": 2,
+        "timestamp": "2026-02-26T15:00:05Z",
+        "data": {
+            "id": "N02F-2N-76",
+            "name": "N02F-2N-76",
+            "floor": "02F",
+            "device_info": {
+            "efficiency": { "value": 0.71, "unit": "kW/RT" },
+            "flow_rate": { "value": 15, "unit": "CMH" },
+            "carbon_emissions": { "monthly_total": 12747, "unit": "KgCo2" }
+            },
+            "electricity_metrics": {
+            "power_factor": 0.92,
+            "active_power_kw": 19.95,
+            "reactive_power_kvar": 8.45,
+            "apparent_power_kva": 21.66,
+            "frequency_hz": 60,
+            "total_active_energy_kwh": 12820.03,
+            "line_voltage": { "v1": 380, "v2": 380, "v3": 381, "unit": "V" },
+            "current": { "a1": 32.9, "a2": 32.9, "a3": 33.1, "unit": "A", "alert_phase": "none" }
+            },
+            "operating_status": {
+            "ambient_temp": { "current": 24.1, "unit": "°C" },
+            "water_temp": { "outlet": 7.0, "inlet": 12.1, "unit": "°C" },
+            "status": "normal",
+            "energy_index": "A1",
+            "operation_percent": 42
+            }
+        }
+        },
+        {
+        "step": 3,
+        "timestamp": "2026-02-26T15:00:10Z",
+        "data": {
+            "id": "N02F-2N-76",
+            "name": "N02F-2N-76",
+            "floor": "02F",
+            "device_info": {
+            "efficiency": { "value": 0.71, "unit": "kW/RT" },
+            "flow_rate": { "value": 15, "unit": "CMH" },
+            "carbon_emissions": { "monthly_total": 12747, "unit": "KgCo2" }
+            },
+            "electricity_metrics": {
+            "power_factor": 0.92,
+            "active_power_kw": 20.05,
+            "reactive_power_kvar": 8.48,
+            "apparent_power_kva": 21.78,
+            "frequency_hz": 60,
+            "total_active_energy_kwh": 12820.06,
+            "line_voltage": { "v1": 380, "v2": 381, "v3": 380, "unit": "V" },
+            "current": { "a1": 33.1, "a2": 33.1, "a3": 33.0, "unit": "A", "alert_phase": "none" }
+            },
+            "operating_status": {
+            "ambient_temp": { "current": 24.2, "unit": "°C" },
+            "water_temp": { "outlet": 7.1, "inlet": 12.2, "unit": "°C" },
+            "status": "normal",
+            "energy_index": "A1",
+            "operation_percent": 50
+            }
+        }
+        },
+        {
+        "step": 4,
+        "timestamp": "2026-02-26T15:00:15Z",
+        "data": {
+            "id": "N02F-2N-76",
+            "name": "N02F-2N-76",
+            "floor": "02F",
+            "device_info": {
+            "efficiency": { "value": 0.73, "unit": "kW/RT" },
+            "flow_rate": { "value": 15, "unit": "CMH" },
+            "carbon_emissions": { "monthly_total": 12747, "unit": "KgCo2" }
+            },
+            "electricity_metrics": {
+            "power_factor": 0.91,
+            "active_power_kw": 20.30,
+            "reactive_power_kvar": 8.58,
+            "apparent_power_kva": 22.05,
+            "frequency_hz": 60,
+            "total_active_energy_kwh": 12820.09,
+            "line_voltage": { "v1": 381, "v2": 380, "v3": 379, "unit": "V" },
+            "current": { "a1": 33.5, "a2": 33.3, "a3": 33.2, "unit": "A", "alert_phase": "none" }
+            },
+            "operating_status": {
+            "ambient_temp": { "current": 24.2, "unit": "°C" },
+            "water_temp": { "outlet": 7.2, "inlet": 12.3, "unit": "°C" },
+            "status": "normal",
+            "energy_index": "A1",
+            "operation_percent": 66
+            }
+        }
+        },
+        {
+        "step": 5,
+        "timestamp": "2026-02-26T15:00:20Z",
+        "data": {
+            "id": "N02F-2N-76",
+            "name": "N02F-2N-76",
+            "floor": "02F",
+            "device_info": {
+            "efficiency": { "value": 0.72, "unit": "kW/RT" },
+            "flow_rate": { "value": 15, "unit": "CMH" },
+            "carbon_emissions": { "monthly_total": 12747, "unit": "KgCo2" }
+            },
+            "electricity_metrics": {
+            "power_factor": 0.92,
+            "active_power_kw": 20.10,
+            "reactive_power_kvar": 8.50,
+            "apparent_power_kva": 21.84,
+            "frequency_hz": 60,
+            "total_active_energy_kwh": 12820.12,
+            "line_voltage": { "v1": 380, "v2": 379, "v3": 380, "unit": "V" },
+            "current": { "a1": 33.2, "a2": 33.0, "a3": 33.1, "unit": "A", "alert_phase": "none" }
+            },
+            "operating_status": {
+            "ambient_temp": { "current": 24.1, "unit": "°C" },
+            "water_temp": { "outlet": 7.1, "inlet": 12.2, "unit": "°C" },
+            "status": "normal",
+            "energy_index": "A1",
+            "operation_percent": 65
+            }
+        }
+        },
+        {
+        "step": 6,
+        "timestamp": "2026-02-26T15:00:25Z",
+        "data": {
+            "id": "N02F-2N-76",
+            "name": "N02F-2N-76",
+            "floor": "02F",
+            "device_info": {
+            "efficiency": { "value": 0.71, "unit": "kW/RT" },
+            "flow_rate": { "value": 15, "unit": "CMH" },
+            "carbon_emissions": { "monthly_total": 12747, "unit": "KgCo2" }
+            },
+            "electricity_metrics": {
+            "power_factor": 0.92,
+            "active_power_kw": 19.85,
+            "reactive_power_kvar": 8.40,
+            "apparent_power_kva": 21.57,
+            "frequency_hz": 60,
+            "total_active_energy_kwh": 12820.15,
+            "line_voltage": { "v1": 379, "v2": 380, "v3": 381, "unit": "V" },
+            "current": { "a1": 32.8, "a2": 32.9, "a3": 33.0, "unit": "A", "alert_phase": "none" }
+            },
+            "operating_status": {
+            "ambient_temp": { "current": 24.1, "unit": "°C" },
+            "water_temp": { "outlet": 7.0, "inlet": 12.1, "unit": "°C" },
+            "status": "normal",
+            "energy_index": "A1",
+            "operation_percent": 64
+            }
+        }
+        },
+        {
+        "step": 7,
+        "timestamp": "2026-02-26T15:00:30Z",
+        "data": {
+            "id": "N02F-2N-76",
+            "name": "N02F-2N-76",
+            "floor": "02F",
+            "device_info": {
+            "efficiency": { "value": 0.72, "unit": "kW/RT" },
+            "flow_rate": { "value": 15, "unit": "CMH" },
+            "carbon_emissions": { "monthly_total": 12747, "unit": "KgCo2" }
+            },
+            "electricity_metrics": {
+            "power_factor": 0.91,
+            "active_power_kw": 20.25,
+            "reactive_power_kvar": 8.56,
+            "apparent_power_kva": 22.00,
+            "frequency_hz": 60,
+            "total_active_energy_kwh": 12820.18,
+            "line_voltage": { "v1": 381, "v2": 381, "v3": 380, "unit": "V" },
+            "current": { "a1": 33.4, "a2": 33.4, "a3": 33.2, "unit": "A", "alert_phase": "none" }
+            },
+            "operating_status": {
+            "ambient_temp": { "current": 24.3, "unit": "°C" },
+            "water_temp": { "outlet": 7.2, "inlet": 12.3, "unit": "°C" },
+            "status": "normal",
+            "energy_index": "A1",
+            "operation_percent": 80
+            }
+        }
+        },
+        {
+        "step": 8,
+        "timestamp": "2026-02-26T15:00:35Z",
+        "data": {
+            "id": "N02F-2N-76",
+            "name": "N02F-2N-76",
+            "floor": "02F",
+            "device_info": {
+            "efficiency": { "value": 0.72, "unit": "kW/RT" },
+            "flow_rate": { "value": 15, "unit": "CMH" },
+            "carbon_emissions": { "monthly_total": 12747, "unit": "KgCo2" }
+            },
+            "electricity_metrics": {
+            "power_factor": 0.92,
+            "active_power_kw": 20.00,
+            "reactive_power_kvar": 8.46,
+            "apparent_power_kva": 21.73,
+            "frequency_hz": 60,
+            "total_active_energy_kwh": 12820.21,
+            "line_voltage": { "v1": 380, "v2": 380, "v3": 380, "unit": "V" },
+            "current": { "a1": 33.1, "a2": 33.1, "a3": 33.1, "unit": "A", "alert_phase": "none" }
+            },
+            "operating_status": {
+            "ambient_temp": { "current": 24.2, "unit": "°C" },
+            "water_temp": { "outlet": 7.1, "inlet": 12.2, "unit": "°C" },
+            "status": "normal",
+            "energy_index": "A1",
+            "operation_percent": 65
+            }
+        }
+        },
+        {
+        "step": 9,
+        "timestamp": "2026-02-26T15:00:40Z",
+        "data": {
+            "id": "N02F-2N-76",
+            "name": "N02F-2N-76",
+            "floor": "02F",
+            "device_info": {
+            "efficiency": { "value": 0.71, "unit": "kW/RT" },
+            "flow_rate": { "value": 15, "unit": "CMH" },
+            "carbon_emissions": { "monthly_total": 12747, "unit": "KgCo2" }
+            },
+            "electricity_metrics": {
+            "power_factor": 0.92,
+            "active_power_kw": 19.90,
+            "reactive_power_kvar": 8.42,
+            "apparent_power_kva": 21.63,
+            "frequency_hz": 60,
+            "total_active_energy_kwh": 12820.24,
+            "line_voltage": { "v1": 379, "v2": 379, "v3": 380, "unit": "V" },
+            "current": { "a1": 32.8, "a2": 32.8, "a3": 33.0, "unit": "A", "alert_phase": "none" }
+            },
+            "operating_status": {
+            "ambient_temp": { "current": 24.1, "unit": "°C" },
+            "water_temp": { "outlet": 7.0, "inlet": 12.1, "unit": "°C" },
+            "status": "normal",
+            "energy_index": "A1",
+            "operation_percent": 64
+            }
+        }
+        },
+        {
+        "step": 10,
+        "timestamp": "2026-02-26T15:00:45Z",
+        "data": {
+            "id": "N02F-2N-76",
+            "name": "N02F-2N-76",
+            "floor": "02F",
+            "device_info": {
+            "efficiency": { "value": 0.73, "unit": "kW/RT" },
+            "flow_rate": { "value": 15, "unit": "CMH" },
+            "carbon_emissions": { "monthly_total": 12747, "unit": "KgCo2" }
+            },
+            "electricity_metrics": {
+            "power_factor": 0.91,
+            "active_power_kw": 20.40,
+            "reactive_power_kvar": 8.62,
+            "apparent_power_kva": 22.16,
+            "frequency_hz": 60,
+            "total_active_energy_kwh": 12820.27,
+            "line_voltage": { "v1": 382, "v2": 381, "v3": 380, "unit": "V" },
+            "current": { "a1": 33.7, "a2": 33.5, "a3": 33.3, "unit": "A", "alert_phase": "none" }
+            },
+            "operating_status": {
+            "ambient_temp": { "current": 24.4, "unit": "°C" },
+            "water_temp": { "outlet": 7.3, "inlet": 12.4, "unit": "°C" },
+            "status": "normal",
+            "energy_index": "A1",
+            "operation_percent": 67
+            }
+        }
+        },
+        {
+        "step": 11,
+        "timestamp": "2026-02-26T15:00:50Z",
+        "data": {
+            "id": "N02F-2N-76",
+            "name": "N02F-2N-76",
+            "floor": "02F",
+            "device_info": {
+            "efficiency": { "value": 0.72, "unit": "kW/RT" },
+            "flow_rate": { "value": 15, "unit": "CMH" },
+            "carbon_emissions": { "monthly_total": 12747, "unit": "KgCo2" }
+            },
+            "electricity_metrics": {
+            "power_factor": 0.92,
+            "active_power_kw": 20.15,
+            "reactive_power_kvar": 8.52,
+            "apparent_power_kva": 21.88,
+            "frequency_hz": 60,
+            "total_active_energy_kwh": 12820.30,
+            "line_voltage": { "v1": 381, "v2": 380, "v3": 380, "unit": "V" },
+            "current": { "a1": 33.2, "a2": 33.1, "a3": 33.1, "unit": "A", "alert_phase": "none" }
+            },
+            "operating_status": {
+            "ambient_temp": { "current": 24.3, "unit": "°C" },
+            "water_temp": { "outlet": 7.1, "inlet": 12.2, "unit": "°C" },
+            "status": "normal",
+            "energy_index": "A1",
+            "operation_percent": 65
+            }
+        }
+        },
+        {
+        "step": 12,
+        "timestamp": "2026-02-26T15:00:55Z",
+        "data": {
+            "id": "N02F-2N-76",
+            "name": "N02F-2N-76",
+            "floor": "02F",
+            "device_info": {
+            "efficiency": { "value": 0.72, "unit": "kW/RT" },
+            "flow_rate": { "value": 15, "unit": "CMH" },
+            "carbon_emissions": { "monthly_total": 12747, "unit": "KgCo2" }
+            },
+            "electricity_metrics": {
+            "power_factor": 0.92,
+            "active_power_kw": 20.05,
+            "reactive_power_kvar": 8.48,
+            "apparent_power_kva": 21.78,
+            "frequency_hz": 60,
+            "total_active_energy_kwh": 12820.33,
+            "line_voltage": { "v1": 380, "v2": 380, "v3": 380, "unit": "V" },
+            "current": { "a1": 33.1, "a2": 33.1, "a3": 33.1, "unit": "A", "alert_phase": "none" }
+            },
+            "operating_status": {
+            "ambient_temp": { "current": 24.2, "unit": "°C" },
+            "water_temp": { "outlet": 7.1, "inlet": 12.2, "unit": "°C" },
+            "status": "normal",
+            "energy_index": "A1",
+            "operation_percent": 65
+            }
+        }
+        }
+    ]
+}

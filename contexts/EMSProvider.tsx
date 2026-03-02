@@ -4,6 +4,36 @@
 import { createContext, useContext, useState, useEffect,useMemo, ReactNode } from "react";
 // 匯入剛才生成的 12 筆模擬數據
 import mockHistory from "../data/floorsKPI12.json"; 
+import chillerHistory from "../data/hvac1.json";
+
+export interface hvacData {
+    id: string;
+    name: string;
+    floor: string;
+    device_info: {
+        efficiency: { value: number; unit: string };
+        flow_rate: { value: number; unit: string };
+        carbon_emissions: { monthly_total: number; unit: string };
+    };
+    electricity_metrics: {
+        power_factor: number;
+        active_power_kw: number;
+        reactive_power_kvar: number;
+        apparent_power_kva: number;
+        frequency_hz: number;
+        total_active_energy_kwh: number;
+        line_voltage: { v1: number; v2: number; v3: number; unit: string };
+        current: { a1: number; a2: number; a3: number; unit: string; alert_phase: string };
+    };
+    operating_status: {
+        ambient_temp: { current: number; unit: string };
+        water_temp: { outlet: number; inlet: number; unit: string };
+        status: string;
+        energy_index: string;
+        operation_percent: number;
+    };
+    timestamp: string;
+}
 
 export interface FloorData {
     floor: string;
@@ -15,6 +45,7 @@ export interface FloorData {
 }
 
 interface EMSContextType {
+    currentHvacData: hvacData | null;
     currentData: any[]; // 這裡可以定義更細的型別
     baseDailyUsage:number;
     baseMonthlyUsage:number;
@@ -57,10 +88,11 @@ export const EMSProvider = ({ children }:{ children:ReactNode }) => {
 
     // 取得當前這一秒的所有樓層數據
     const currentData = mockHistory.floorKPI_History[currentIndex].data;
-
+    const currentHvacData = chillerHistory.chiller_data_sequence[currentIndex].data as hvacData;
     return (
         <EMSContext.Provider value={{ 
             currentData, 
+            currentHvacData,
             baseDailyUsage, 
             baseMonthlyUsage, 
             baseYearlyUsage,

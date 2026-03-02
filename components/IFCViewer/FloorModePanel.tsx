@@ -25,7 +25,7 @@ interface FloorModePanelProps {
 }
 
 type TQueryRow = {
-    attribute: "Name"; 
+    attribute: "Name";      
     operator: "include";
     value: string;
     logic: "AND";
@@ -54,11 +54,12 @@ const FloorModePanel: React.FC<FloorModePanelProps> = ({
 }) => {
 
 const { selectedFloor, setSelectedFloor, viewMode,selectedDevice, setSelectedDevice , setSelectedFragId, setSelectedDeviceName,
-        setIsGlobalLoading,setLoadingMessage,setIsCCTVOn,setIsHVACOn,setIsEACOn
+        setIsGlobalLoading,setLoadingMessage,setIsCCTVOn,setIsHVACOn,setIsEACOn,setCurrentFoundDevices
         } = useAppContext(); 
 
 const [availableFloors, setAvailableFloors] = useState<string[]>([]);
 const [filteredDevices, setFilteredDevices] = useState<TResultItem[]>([]);
+const [floorDevices, setFloorDevices] = useState<TResultItem[]>([]);
 const [searchText, setSearchText] = useState("");
 const [isLoading, setIsLoading] = useState(false);
 const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -91,12 +92,22 @@ const toggleCategory = (category: string) => {
 // --- 1. 樓層解析工具 ---
 const extractFloorFromModelId = (modelId: string): string | null => {
     try {
-    let tempId = modelId.replace('.ifc.frag', '');
-    if (tempId.endsWith('_')) tempId = tempId.slice(0, -1);
-    const parts = tempId.split('_');
-    return parts[parts.length - 1];
+        // 1. 取得純檔名：移除 "models/" 前綴與 ".ifc.frag" 副檔名
+        // 範例：models/1772094551333-13F-CurtainWall.ifc.frag -> 1772094551333-13F-CurtainWall
+        const fileName = modelId.split('/').pop()?.replace('.ifc.frag', '') || '';
+        
+        // 2. 使用 "-" 分割
+        // 分割後：["1772094551333", "13F", "CurtainWall"]
+        const parts = fileName.split('-');
+        
+        // 3. 樓層資訊固定在 Index 1
+        const floor = parts[1]; 
+        
+        // 檢查抓到的是否為有效的樓層格式 (例如包含 'F')
+        return floor || null;
     } catch (e) {
-    return null;
+        console.error("解析樓層失敗:", e);
+        return null;
     }
 };
 
@@ -116,112 +127,116 @@ useEffect(() => {
     setAvailableFloors(uniqueFloors);
 }, [loadedModelIds]);
 
-
-// --- 3. 核心功能：根據樓層載入設備 (獨立函式) ---
 const fetchAndIsolateFloor = useCallback(async (floor: string | null) => {
-    
-    if(isLoadingRef.current){
-        console.log("過度頻繁呼叫 所以我擋住了");
-        return;
-    }
-
+    if (isLoadingRef.current) return;
     isLoadingRef.current = true;
 
+    // 清除狀態
     setSelectedDevice(null);
     setSelectedDeviceName(null);
-
     prevSelectedFloorRef.current = floor;
-    lastViewModeRef.current = 'floor';
 
     const hider = components.get(OBC.Hider);
     const highlighter = components.get(OBCF.Highlighter);
-    outlinerRef.current?.dispose();
-    markerRef.current?.dispose();
-    setIsCCTVOn(false);
-    setIsEACOn(false);
-    setIsHVACOn(false);
     
-    setSearchText('');
-    setIsLoading(true);
     setIsGlobalLoading(true);
-    setLoadingMessage("正在分離樓層...");
+    setLoadingMessage(`正在載入 ${floor || "全部"} 樓層設備...`);
 
     try {
         await highlighter.clear("select");
 
-        // 修改查詢邏輯：
-        // 如果有 floor，搜尋包含 floor 名稱的設備。
-        // 如果沒有 floor，搜尋 Name 包含空字串的設備 (意即所有有名稱的設備)。
-        const query: TQueryRow = {
-            attribute: "Name",
-            operator: "include",
-            value: floor ? floor : "", // 當 floor 為 null 時，傳入空字串 ""
-            logic: "AND"
-        };
+        // --- 核心邏輯修改：先過濾出屬於該樓層的 ModelID ---
+        const targetModelIds = floor 
+            ? loadedModelIds.filter(id => extractFloorFromModelId(id) === floor)
+            : loadedModelIds;
 
+        console.log(`📍 目標樓層: ${floor}, 關聯模型數量: ${targetModelIds.length}`, targetModelIds);
+
+        // 如果該樓層完全沒有對應模型，直接結束
+        if (targetModelIds.length === 0) {
+            await hider.set(false);
+            setFilteredDevices([]);
+            return;
+        }
+
+        // --- 步驟 1: 視覺隔離 (先顯示整層模型) ---
+        // 先隱藏所有，再顯示目標 ModelIDs
+        await hider.set(false);
+        const floorVisibilityMap: Record<string, Set<number>> = {};
+        targetModelIds.forEach(id => {
+            floorVisibilityMap[id] = new Set(); // 傳空 Set 代表顯示整個模型
+        });
+        await hider.set(true, floorVisibilityMap);
+
+        // --- 步驟 2: 精確資料庫查詢 ---
+        // 我們直接把 modelIds 傳給後端，不需要額外的 queries 條件
         const response = await fetch('/api/elements', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                queries: [query], 
-                modelIds: loadedModelIds 
+                queries: [], // 不帶條件，代表抓取這些模型內的所有設備
+                modelIds: targetModelIds 
             }),
         });
 
         if (!response.ok) throw new Error('Search request failed');
         const foundElements = await response.json();
 
-        console.log("依照樓層找到",foundElements);
+        // --- 步驟 3: 更新設元素清單 給顯示樓層物件用 ---
+        const foundItems: TResultItem[] = foundElements.map((element: any) => {
+            const { modelId, attributes } = element;
+            const expressID = attributes._localId.value;
+            return {
+                id: `${modelId}-${expressID}`,
+                name: attributes.Name?.value || `Element ${expressID}`,
+                category: attributes._category?.value || `Undefined`,
+                expressID,
+                fragmentId: modelId,
+                floor: floor || "All"
+            };
+        });
+
+        // --- 步驟 3: 更新設備清單 (僅過濾名稱包含 CAM 的設備) ---
+        const foundDevice: TResultItem[] = foundElements
+        .filter((element: any) => {
+            // 取得名稱，若無名稱則設為空字串以防報錯
+            const name = element.attributes.Name?.value || "";
+            // 檢查是否包含 "CAM" (建議使用 includes 並注意大小寫)
+            return name.toUpperCase().includes("CAM");
+        })
+        .map((element: any) => {
+            const { modelId, attributes } = element;
+            const expressID = attributes._localId.value;
+            return {
+                id: `${modelId}-${expressID}`,
+                name: attributes.Name?.value || `Element ${expressID}`,
+                category: attributes._category?.value || `Undefined`,
+                expressID,
+                fragmentId: modelId,
+                floor: floor || "All"
+            };
+        });
+
+
+        setFilteredDevices(foundItems);
+        setFloorDevices(foundDevice);
+        setCurrentFoundDevices(foundDevice);
         
-        if (foundElements.length > 0) {
-            const finalResult: { [id: string]: Set<number> } = {};
-            const foundItems: TResultItem[] = [];
-
-            for (const element of foundElements) {
-                const { modelId, attributes } = element;
-                const expressID = attributes._localId.value;
-                
-                if (!finalResult[modelId]) finalResult[modelId] = new Set();
-                finalResult[modelId].add(expressID);
-
-                foundItems.push({
-                    id: `${modelId}-${expressID}`,
-                    name: attributes.Name?.value || `Element ${expressID}`,
-                    category: attributes._category.value || `Undefined`,
-                    expressID,
-                    fragmentId: modelId,
-                    floor: floor || "All"
-                });
-            }
-
-            // 視覺呈現邏輯
-            if (!floor) {
-                await hider.set(true); // 選取全部時，顯示所有模型物件
-            } else {
-                await hider.isolate(finalResult); // 選取特定樓層時，隔離顯示
-            }
-            
-            setFilteredDevices(foundItems);
-            
-            if(viewMode === 'floor')await onFocus('top-down');
-            if(viewMode === 'device')await onFocus('tight-fit');
-            // // 確保渲染完成後再對焦
-            // await cameraRef.current?.fitToItems(finalResult);
-            // console.log("第一個focus")
-        } 
-        else {
-            await hider.set(true); 
-            setFilteredDevices([]);
+        if (fragmentsRef.current) {
+            // 1. 通知 Fragments Manager 幾何資料有變動
+            await fragmentsRef.current.core.update(true);
         }
+        // --- 步驟 4: 相機聚焦 ---
+        if (viewMode === 'floor') await onFocus('top-down');
+        else if (viewMode === 'device') await onFocus('tight-fit');
 
     } catch (error) {
         console.error("Floor search failed:", error);
     } finally {
-        setIsLoading(false);
         setIsGlobalLoading(false);
         isLoadingRef.current = false;
     }
-}, [components,outlinerRef,markerRef,loadedModelIds, viewMode]);
+}, [components, loadedModelIds, viewMode, onFocus, extractFloorFromModelId]);
 
 // 只有在以下兩種情況才執行 3D 隔離與資料抓取：
 // 1. 樓層真正改變時 (手動下拉選單)
@@ -300,10 +315,10 @@ const onSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
 
 // 第一步：先過濾搜尋關鍵字
 const displayDevices = useMemo(() => {
-    return filteredDevices.filter(d => 
+    return floorDevices.filter(d => 
         !debouncedSearch || d.name.toLowerCase().includes(debouncedSearch.toLowerCase())
     );
-}, [debouncedSearch, filteredDevices]); 
+}, [debouncedSearch, floorDevices]); 
 
 // 第二步：將過濾後的結果進行「種類分組」
 const groupedDevices = useMemo(() => {
@@ -364,14 +379,6 @@ const handleDeviceClick = async (device: TResultItem) => {
 const floorHighlightHandler = useCallback(async (selection: OBC.ModelIdMap) => {
 
     console.log("現在的viewmode是",viewModeRef.current);
-    // if(viewModeRef.current === 'device') return;
-    
-    // // 若上面marker.dispose()沒有刪好 這段強制清除所有幽靈標記
-    // const existingMarkers = document.querySelectorAll('.bim-marker-label');
-    // existingMarkers.forEach((el) => {
-    //     el.remove();
-    // });
-
     
     const hider = components.get(OBC.Hider);
     if (!Object.keys(selection).length) return;
@@ -424,7 +431,7 @@ const floorHighlightHandler = useCallback(async (selection: OBC.ModelIdMap) => {
         if (setSelectedDevice) setSelectedDevice(expressId);
         if (setSelectedFragId) setSelectedFragId(modelId[0]);
         // if (handleSwitchViewMode) handleSwitchViewMode('device');
-        console.log("切換至設備模式:", modelId[0]);
+        // console.log("切換至設備模式:", modelId[0]);
 
         await cameraRef.current?.fitToItems(selection);
         await highlighterRef.current?.clear();

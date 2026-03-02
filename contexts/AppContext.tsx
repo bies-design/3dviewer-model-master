@@ -5,6 +5,15 @@ import { useSession } from "next-auth/react"; // Import useSession
 import { viewerApi, ViewerAPI } from "@/lib/viewer-api";
 import { User } from "@/types/mongodb"; // Import User interface from types/mongodb
 
+type TResultItem = {
+    id: string;
+    name: string;
+    category: string;
+    expressID: number;
+    fragmentId: string;
+    floor: string;
+};
+
 interface AppContextType {
   darkMode: boolean;
   toggleTheme: () => void;
@@ -63,10 +72,12 @@ interface AppContextType {
   setIsCCTVOn:  React.Dispatch<React.SetStateAction<boolean>>;
   isEACOn: boolean;
   setIsEACOn:  React.Dispatch<React.SetStateAction<boolean>>;
-  isGlobalLoading: boolean
+  isGlobalLoading: boolean;
   setIsGlobalLoading: React.Dispatch<React.SetStateAction<boolean>>;
   loadingMessage: string;
   setLoadingMessage: React.Dispatch<React.SetStateAction<string | "">>;
+  currentFoundDevices: TResultItem[];
+  setCurrentFoundDevices: React.Dispatch<React.SetStateAction<TResultItem[]>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -110,6 +121,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [isEACOn, setIsEACOn] = useState<boolean>(false);
 
   const { data: session, status } = useSession(); // Get session and status
+  
+  const [currentFoundDevices, setCurrentFoundDevices] = useState<TResultItem[]>([]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -151,7 +164,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       isLoadingUser, // Add isLoadingUser to context value
       showProgressModal, setShowProgressModal, progress, setProgress,
       viewMode, setViewMode, deviceViewMode, setDeviceViewMode, selectedFloor,setSelectedFloor, selectedDevice, setSelectedDevice, selectedFragId, setSelectedFragId, selectedDeviceName, setSelectedDeviceName,
-      isHVACOn, setIsHVACOn, isCCTVOn, setIsCCTVOn, isEACOn, setIsEACOn,isGlobalLoading,setIsGlobalLoading,loadingMessage,setLoadingMessage// Add new states to context value
+      isHVACOn, setIsHVACOn, isCCTVOn, setIsCCTVOn, isEACOn, setIsEACOn,isGlobalLoading,setIsGlobalLoading,loadingMessage,setLoadingMessage,currentFoundDevices,setCurrentFoundDevices// Add new states to context value
     }}>
       {children}
     </AppContext.Provider>
