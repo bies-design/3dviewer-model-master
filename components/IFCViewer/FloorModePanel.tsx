@@ -22,6 +22,7 @@ interface FloorModePanelProps {
     cameraRef: React.MutableRefObject<OBC.OrthoPerspectiveCamera | null>;
     fragmentsRef: React.RefObject<OBC.FragmentsManager | null>;
     highlighterRef: React.MutableRefObject<OBCF.Highlighter | null>;
+    boxerRef: React.MutableRefObject<OBC.BoundingBoxer | null>;
 }
 
 type TQueryRow = {
@@ -51,6 +52,7 @@ const FloorModePanel: React.FC<FloorModePanelProps> = ({
     cameraRef,
     fragmentsRef,
     highlighterRef,
+    boxerRef
 }) => {
 
 const { selectedFloor, setSelectedFloor, viewMode,selectedDevice, setSelectedDevice , setSelectedFragId, setSelectedDeviceName,
@@ -289,12 +291,22 @@ const handleMouseEnter = async (device: TResultItem) => {
     const highlighter = highlighterRef.current;
     if (!highlighter) return;
 
+    const boxer = boxerRef.current;
     // 建構選取集
     const selection = { [device.fragmentId]: new Set([device.expressID]) };
     
+    const centerPoint = await boxer?.getCenter(selection);
     // 使用 'hover' 這個名稱來 highlight，避免影響 'select'
     //remove previous 交給handlemouseleave
-    await highlighter.highlightByID('hover', selection, false, true);
+    await highlighter.highlightByID('hover', selection, false, false);
+
+    if(cameraRef.current && centerPoint){
+        cameraRef.current.controls.setLookAt(
+            centerPoint.x - 1,centerPoint.y + 1 ,centerPoint.z - 3,
+            centerPoint.x,centerPoint.y,centerPoint.z,
+            true // 開啟過渡動畫  
+        )
+    }
 };
 //mouse leave then clear the highlighted device
 const handleMouseLeave = async () => {
@@ -350,16 +362,19 @@ const handleDeviceClick = async (device: TResultItem) => {
     
     const selection = {[device.fragmentId]: new Set([device.expressID])};
 
+    const boxer = boxerRef.current;
+    const centerPoint = await boxer?.getCenter(selection);
+    
     try {
         // 1. 3D 邏輯：隔離並聚焦
-        await hider.isolate(selection);
+        // await hider.isolate(selection);
         
         // 儲存選中的設備，供新的面板使用
         if (setSelectedDevice) setSelectedDevice(device.expressID);
         if (setSelectedFragId) setSelectedFragId(device.fragmentId);
         if (setSelectedDeviceName) setSelectedDeviceName(device.name);
 
-        setSearchText(device.name);
+        // setSearchText(device.name);
 
         console.log("選中",device.expressID);
         console.log("選中",device.fragmentId);
@@ -368,8 +383,15 @@ const handleDeviceClick = async (device: TResultItem) => {
         // if(handleSwitchViewMode) await handleSwitchViewMode('device');
         
         console.log("切換至設備模式:", device);
-        await onFocus('tight-fit');
         
+        // await onFocus('tight-fit');
+        if(cameraRef.current && centerPoint){
+            cameraRef.current.controls.setLookAt(
+                centerPoint.x - 1,centerPoint.y +1 ,centerPoint.z - 3,
+                centerPoint.x,centerPoint.y,centerPoint.z,
+                true // 開啟過渡動畫  
+            )
+        }
     }catch(e){
         console.log("選中失敗",e);
     }   
@@ -386,7 +408,7 @@ const floorHighlightHandler = useCallback(async (selection: OBC.ModelIdMap) => {
     console.log("Floor Mode 專屬點擊邏輯:", selection);
 
     try{
-        await hider.isolate(selection);
+        // await hider.isolate(selection);
         
         //提取expresId from selection
         const modelId = Object.keys(selection);
@@ -443,6 +465,45 @@ const floorHighlightHandler = useCallback(async (selection: OBC.ModelIdMap) => {
         console.log("選中失敗",e);
     }
 }, []);
+// --- 限制 3D 畫面中可點選/可懸停的物件 ---
+useEffect(() => {
+    const highlighter = highlighterRef.current;
+    if (!highlighter) return;
+
+    // 取得預設的點選樣式名稱，通常是 "select"
+    const selectName = highlighter.config?.selectName || "select";
+
+    // 如果當前模式有過濾出的設備
+    if (floorDevices.length > 0) {
+        // 1. 將 floorDevices 轉換成 OBC.ModelIdMap
+        const selectableMap: OBC.ModelIdMap = {};
+        floorDevices.forEach(device => {
+            if (!selectableMap[device.fragmentId]) {
+                selectableMap[device.fragmentId] = new Set();
+            }
+            selectableMap[device.fragmentId].add(device.expressID);
+        });
+
+        // 2. 將這個 Map 指定給 selectable 屬性
+        highlighter.selectable[selectName] = selectableMap;
+        
+        // 3. (可選) 如果您連 hover 都不希望觸發在牆壁上，把 "hover" 也加上限制
+        highlighter.selectable["hover"] = selectableMap;
+
+        console.log("✅ 已鎖定可點選物件，僅限設備清單內的項目");
+    } else {
+        // 如果清單是空的，設定一個空的 Map，代表「沒有任何東西可以點擊」
+        highlighter.selectable[selectName] = {};
+        highlighter.selectable["hover"] = {};
+    }
+
+    // Cleanup：當元件卸載 (例如切換回 Global 模式) 時，解除點選限制
+    return () => {
+        delete highlighter.selectable[selectName];
+        delete highlighter.selectable["hover"];
+        console.log("❌ 已解除可點選物件鎖定");
+    };
+}, [floorDevices, highlighterRef]);
 
 const floorOptions = [
     { key: "", label: "全部" }, 
@@ -475,7 +536,7 @@ useEffect(() => {
                 searchResultMap[device.fragmentId].add(device.expressID);
             });
 
-            await hider.isolate(searchResultMap);
+            // await hider.isolate(searchResultMap);
         } 
         // 2. 如果搜尋文字被清空 -> 恢復顯示目前選中的樓層 (或是全部)
         else if (!debouncedSearch) {

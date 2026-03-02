@@ -43,6 +43,7 @@ import { createMarkerElement } from "@/app/markerElements/CCTVMarkerDiv";
 import GlobalLoader from "@/components/loader/GlobalLoader";
 import { useEMS, hvacData } from "@/contexts/EMSProvider";
 import historyData from "../data/historyData.json"
+import CCTVWindow from "@/components/camera/CCTVWindow";
 // --- 模擬圖表數據 ---
   const powerData = historyData.historical_charts.powerData;
 
@@ -222,7 +223,9 @@ export default function IFCViewerContainer() {
   const { t } = useTranslation();
 
   const {currentHvacData} = useEMS();
-  
+  const [isCCTVModalOpen, setIsCCTVModalOpen] = useState<boolean>(false);
+  const [activeCCTVName, setActiveCCTVName] = useState<string | null>(null);
+
   // ★★★ 新增：用 Ref 追蹤 setViewMode ★★★
   const viewModeRef = useRef(viewMode);
   const setViewModeRef = useRef(setViewMode);
@@ -2552,33 +2555,41 @@ useEffect(() => {
   }, [handleLogout]);
 
   // open the camera's hls or webrtc page aside
+// const showCCTVDisplay = async(elementName:string) => {
+//   const w = window.screen.availWidth/2;
+//   const h = window.screen.availHeight/2;
+
+//   const left = (window.screen.availWidth - w) / 2;
+//   const top = (window.screen.availHeight - h) / 2;
+
+//   const features = [
+//     `width=${w}`,
+//     `height=${h}`,
+//     `left=${left}`,
+//     `top=${top}`,
+//     "popup=yes",
+//     "noopener=yes",
+//     "noreferrer=yes",
+//     "resizable=yes",
+//     "scrollbars=yes"
+//   ].join(",");
+
+//   if (!elementName) {
+//     setToast({ message: "請先選擇一個攝影機", type: "error" });
+//     return;
+//   }
+
+//   //開啟新分頁
+//   window.open(`/CCTV/${elementName}`, `CCTV_${elementName}`, features);
+
+// }
 const showCCTVDisplay = async(elementName:string) => {
-  const w = window.screen.availWidth/2;
-  const h = window.screen.availHeight/2;
-
-  const left = (window.screen.availWidth - w) / 2;
-  const top = (window.screen.availHeight - h) / 2;
-
-  const features = [
-    `width=${w}`,
-    `height=${h}`,
-    `left=${left}`,
-    `top=${top}`,
-    "popup=yes",
-    "noopener=yes",
-    "noreferrer=yes",
-    "resizable=yes",
-    "scrollbars=yes"
-  ].join(",");
-
   if (!elementName) {
     setToast({ message: "請先選擇一個攝影機", type: "error" });
     return;
   }
-
-  //開啟新分頁
-  window.open(`/CCTV/${elementName}`, `CCTV_${elementName}`, features);
-
+  setActiveCCTVName(elementName);
+  setIsCCTVModalOpen(true);
 }
 // fetch the object id for the routing
 const handleIssueForms = async() => {
@@ -3492,6 +3503,7 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
                         cameraRef={cameraRef}
                         fragmentsRef={fragmentsRef}
                         highlighterRef={highlighterRef}
+                        boxerRef={boxerRef}
                       />
                     </div>
                   </div>
@@ -3511,6 +3523,11 @@ const handleLocateElementByName = useCallback(async (elementName: string) => {
           {showWarningModal && (
             <WarningHistoryModal componentsRef={componentsRef} onClose={()=> setShowWarningModal(false)}/>
           )}
+          <CCTVWindow
+            isOpen={isCCTVModalOpen}
+            onClose={()=>setIsCCTVModalOpen(false)}
+            elementName={activeCCTVName}
+          />
           {isMonitorOpen && (
             <div className={`fixed top-0 left-[72px] h-full w-[calc(100%-72px)] z-45 transform transition-transform duration-300 ${isMonitorOpen ? 'translate-x-0' : '-translate-x-full'} bg-black`}>
               <CameraViewerPanel

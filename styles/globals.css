@@ -14,7 +14,7 @@
   }
   .hud-panel {
     /* 1. 基礎容器樣式 */
-    @apply backdrop-blur-xl pointer-events-auto;
+    @apply backdrop-blur-3xl pointer-events-auto;
     
     /* 2. 使用雙重線性漸層繪製四個角 (L型邊框) */
     background: 
@@ -29,10 +29,12 @@
       linear-gradient(to top, #2BC3EC 2px, transparent 2px) 0 100%,
       /* 右下角 */
       linear-gradient(to left, #2BC3EC 2px, transparent 2px) 100% 100%,
-      linear-gradient(to top, #2BC3EC 2px, transparent 2px) 100% 100%;
+      linear-gradient(to top, #2BC3EC 2px, transparent 2px) 100% 100%,
+
+      linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
 
     background-repeat: no-repeat;
-    background-size: 8px 8px; 
+    background-size: 8px 8px, 8px 8px, 8px 8px, 8px 8px, 8px 8px, 8px 8px, 8px 8px, 8px 8px, 100% 100%; 
   }
 
 }

@@ -120,7 +120,7 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
         }else{
             setFloorCameras([]);
         }
-        // setFloorCameras(cams);
+        // setFloorCameras(cams); 
         // // 可以取消上一筆請求
         // const controller = new AbortController();
         // const signal = controller.signal;
@@ -351,7 +351,7 @@ const RightInfoPanel: React.FC<RightInfoPanelProps> = ({floor,onLocate}) => {
                                     >
                                         <div className="flex flex-col overflow-hidden">
                                             <span className={`text-[10px] truncate ${isSelected ? 'text-cyan-200' : 'text-gray-400'}`} title={cam.id}>
-                                                {cam.id}
+                                                {cam.elementName}
                                             </span>
                                             <span className={`text-xs font-bold truncate ${isSelected ? 'text-white' : 'text-gray-300'}`} title={cam.elementName}>
                                                 {cam.title}
